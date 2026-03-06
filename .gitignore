@@ -1,0 +1,13 @@
+.next
+node_modules
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+next-env.d.ts
+*.log
+.pnpm-store
+tsconfig.tsbuildinfo
+
+.DS_Store
