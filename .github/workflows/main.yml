@@ -30,28 +30,21 @@ jobs:
       - name: Run linter
         run: pnpm run lint
   build:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.1.0
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20.19.0"
-          cache: "pnpm"
 
       - name: Install Vercel CLI
-        run: pnpm add -global vercel@latest
+        run: npm install -g vercel
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm install
 
       - name: Pull Vercel Environment Variables
         env:
@@ -59,8 +52,6 @@ jobs:
         run: vercel pull --yes --token ${{ secrets.VERCEL_TOKEN }}
 
       - name: Build with Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel build --token ${{ secrets.VERCEL_TOKEN }} --prod
   test:
     runs-on: ubuntu-latest
