@@ -17,30 +17,15 @@ type PageProps = {
 
 function PageFallback() {
   return (
-    <div className="min-h-svh bg-[radial-gradient(circle_at_top,#88133722,transparent_32%),linear-gradient(180deg,#050505_0%,#111827_52%,#050505_100%)] text-foreground">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 md:px-8 lg:px-10">
-        <section className="grid gap-6 border border-border/70 bg-background/70 p-6 backdrop-blur-sm lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-4">
-            <div className="h-5 w-36 bg-muted/40" />
-            <div className="space-y-3">
-              <div className="h-12 max-w-2xl bg-muted/40" />
-              <div className="h-5 max-w-xl bg-muted/30" />
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-            <div className="h-24 border border-border/70 bg-card/60" />
-            <div className="h-24 border border-border/70 bg-card/60" />
-            <div className="h-24 border border-border/70 bg-card/60" />
-          </div>
-        </section>
-        <section className="grid gap-6 lg:grid-cols-[24rem_minmax(0,1fr)]">
-          <div className="space-y-6">
-            <div className="h-40 border border-border/70 bg-card/75 backdrop-blur-sm" />
-            <div className="h-72 border border-border/70 bg-card/75 backdrop-blur-sm" />
-          </div>
-          <div className="h-[32rem] border border-border/70 bg-card/75 backdrop-blur-sm" />
-        </section>
+    <div className="flex h-svh flex-col overflow-hidden bg-[#050507] text-foreground">
+      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/40 bg-background/80 px-3">
+        <div className="size-6 bg-muted/30" />
+        <div className="h-4 w-px bg-border/50" />
+        <div className="h-4 w-20 bg-muted/30" />
+        <div className="flex-1" />
+        <div className="h-4 w-32 bg-muted/20" />
       </div>
+      <div className="flex-1 bg-[#050507]" />
     </div>
   )
 }

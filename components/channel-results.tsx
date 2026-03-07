@@ -1,12 +1,8 @@
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -14,25 +10,25 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { ChannelResult } from "@/lib/types"
+} from "@/components/ui/card";
+import { ChannelResult } from "@/lib/types";
 
 type ChannelResultsProps = {
-  title: string
-  description: string
-  channels: ChannelResult[]
-  selectedIds: string[]
-  emptyMessage: string
-  onAddChannel: (channel: ChannelResult) => void
-  onRemoveChannel: (channelId: string) => void
-}
+  title: string;
+  description: string;
+  channels: ChannelResult[];
+  selectedIds: string[];
+  emptyMessage: string;
+  onAddChannel: (channel: ChannelResult) => void;
+  onRemoveChannel: (channelId: string) => void;
+};
 
 function initials(label: string) {
   return label
     .split(/\s+/)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("")
+    .join("");
 }
 
 export function ChannelResults({
@@ -57,32 +53,41 @@ export function ChannelResults({
           </div>
         ) : null}
         {channels.map((channel) => {
-          const isSelected = selectedIds.includes(channel.channelId)
-          const isLive = channel.live.status === "live"
+          const isSelected = selectedIds.includes(channel.channelId);
+          const isLive = channel.live.status === "live";
 
           return (
             <Card
               key={channel.channelId}
               size="sm"
-              className="border border-border/70 bg-background/70"
+              className="border border-border/70 bg-background/70 relative overflow-visible"
             >
               <CardHeader>
-                <div className="flex items-start gap-3">
-                  <Avatar size="lg">
-                    <AvatarImage src={channel.thumbnailUrl} alt={channel.title} />
+                <Badge
+                  variant={isLive ? "default" : "secondary"}
+                  className="uppercase absolute top-0 -left-2 z-10"
+                >
+                  {channel.live.status}
+                </Badge>
+                <div
+                  className="flex min-w-0 items-start gap-3"
+                  title={`${channel.title}\n${channel.description || "No description available."}`}
+                >
+                  <Avatar size="lg" className="shrink-0">
+                    <AvatarImage
+                      src={channel.thumbnailUrl}
+                      alt={channel.title}
+                    />
                     <AvatarFallback>{initials(channel.title)}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
                     <CardTitle className="truncate">{channel.title}</CardTitle>
-                    <CardDescription className="mt-1 line-clamp-2">
+                    <CardDescription className="mt-1 truncate">
                       {channel.description || "No description available."}
                     </CardDescription>
                   </div>
                 </div>
                 <CardAction className="flex items-center gap-2">
-                  <Badge variant={isLive ? "default" : "secondary"} className="uppercase">
-                    {channel.live.status}
-                  </Badge>
                   {isSelected ? (
                     <Button
                       variant="ghost"
@@ -99,15 +104,15 @@ export function ChannelResults({
                       onClick={() => onAddChannel(channel)}
                     >
                       <Plus />
-                      {isLive ? "Add live" : "Add anyway"}
+                      Add
                     </Button>
                   )}
                 </CardAction>
               </CardHeader>
             </Card>
-          )
+          );
         })}
       </CardContent>
     </Card>
-  )
+  );
 }
