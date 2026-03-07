@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  CircleAlert,
   PanelLeftClose,
   PanelLeftOpen,
   RadioTower,
@@ -190,10 +189,6 @@ export function MultiwatchApp({
     runSearch(nextQuery);
   }
 
-  function handleMakeActive(channelId: string) {
-    setActiveAudioChannelId(channelId);
-  }
-
   function handleManualRefresh() {
     if (!configured || selectedChannels.length === 0) {
       return;
@@ -215,7 +210,6 @@ export function MultiwatchApp({
     (channel) => channel.live.status === "live",
   ).length;
   const displayedResults = query.trim() ? results : seedResults;
-  console.log(displayedResults);
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-[#050507] text-foreground">
@@ -305,18 +299,6 @@ export function MultiwatchApp({
               <div className="text-[10px] text-muted-foreground/60">
                 Updated {new Date(lastUpdated).toLocaleTimeString()}
               </div>
-
-              {!configured ? (
-                <div className="border border-dashed border-amber-500/50 bg-amber-500/10 p-3 text-xs">
-                  <div className="mb-1.5 flex items-center gap-1.5 font-medium text-amber-200">
-                    <CircleAlert className="size-3.5" />
-                    Env required
-                  </div>
-                  <p className="text-amber-50/80">
-                    Add your YouTube API key and Upstash Redis credentials.
-                  </p>
-                </div>
-              ) : null}
 
               <ChannelResults
                 title="Selected"

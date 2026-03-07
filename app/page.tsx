@@ -15,7 +15,7 @@ type PageProps = {
   }>
 }
 
-function PageFallback() {
+export function PageFallback() {
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-[#050507] text-foreground">
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/40 bg-background/80 px-3">
@@ -30,7 +30,7 @@ function PageFallback() {
   )
 }
 
-async function PageContent({ searchParams }: PageProps) {
+export async function PageContent({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams
   const configured = projectConfigured()
   const query =
