@@ -13,7 +13,7 @@
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch"
   },
   "dependencies": {
-    "@upstash/redis": "^1.36.3",
+    "@upstash/redis": "^1.37.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "botid": "^1.5.11",
     "class-variance-authority": "^0.7.1",
