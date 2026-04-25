@@ -20,6 +20,7 @@ import { LiveGrid } from "@/components/live-grid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChannelResult } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type MultiwatchAppProps = {
   initialQuery: string;
@@ -267,7 +268,10 @@ export function MultiwatchApp({
         {/* Sidebar */}
         <aside
           data-open={sidebarOpen}
-          className="absolute inset-y-0 left-0 z-30 flex w-80 shrink-0 translate-x-[-100%] flex-col border-r border-border/40 bg-background/95 backdrop-blur-xl transition-transform duration-200 ease-out data-[open=true]:translate-x-0 lg:relative lg:z-auto lg:translate-x-[-100%] lg:data-[open=true]:translate-x-0"
+          className={cn(
+            "absolute inset-y-0 left-0 z-30 flex w-80 shrink-0 translate-x-[-100%] flex-col border-r border-border/40 bg-background/95 backdrop-blur-xl transition-transform duration-200 ease-out data-[open=true]:translate-x-0 lg:relative lg:z-auto lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out",
+            sidebarOpen ? "lg:w-80" : "lg:w-0 lg:border-r-0",
+          )}
         >
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/30 px-3">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
