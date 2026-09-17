@@ -1,8 +1,8 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 
-import { beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import type { BaseChannel, LiveStatus } from "@/lib/types"
 
 import {
@@ -18,24 +18,24 @@ import {
   seedCacheKey,
 } from "@/lib/cache-keys"
 
-const mockHasRedisEnv = jest.fn<() => boolean>()
-const mockGetRedis = jest.fn<() => RedisMock | null>()
-const mockGetChannelsByIds = jest.fn<(channelIds: string[]) => Promise<BaseChannel[]>>()
-const mockGetLiveVideoForChannel = jest.fn<(channelId: string) => Promise<LiveStatus>>()
-const mockSearchChannels = jest.fn<
+const mockHasRedisEnv = vi.fn<() => boolean>()
+const mockGetRedis = vi.fn<() => RedisMock | null>()
+const mockGetChannelsByIds = vi.fn<(channelIds: string[]) => Promise<BaseChannel[]>>()
+const mockGetLiveVideoForChannel = vi.fn<(channelId: string) => Promise<LiveStatus>>()
+const mockSearchChannels = vi.fn<
   (query: string, maxResults?: number) => Promise<BaseChannel[]>
 >()
-const mockYoutubeConfigured = jest.fn<() => boolean>()
+const mockYoutubeConfigured = vi.fn<() => boolean>()
 
-jest.unstable_mockModule("@/lib/env", () => ({
+vi.doMock("@/lib/env", () => ({
   hasRedisEnv: mockHasRedisEnv,
 }))
 
-jest.unstable_mockModule("@/lib/redis", () => ({
+vi.doMock("@/lib/redis", () => ({
   getRedis: mockGetRedis,
 }))
 
-jest.unstable_mockModule("@/lib/youtube", () => ({
+vi.doMock("@/lib/youtube", () => ({
   getChannelsByIds: mockGetChannelsByIds,
   getLiveVideoForChannel: mockGetLiveVideoForChannel,
   searchChannels: mockSearchChannels,
@@ -59,9 +59,9 @@ beforeAll(async () => {
 })
 
 type RedisMock = {
-  get: ReturnType<typeof jest.fn<(key: string) => Promise<unknown>>>
+  get: ReturnType<typeof vi.fn<(key: string) => Promise<unknown>>>
   set: ReturnType<
-    typeof jest.fn<
+    typeof vi.fn<
       (key: string, value: unknown, options: { ex: number }) => Promise<void>
     >
   >
@@ -69,8 +69,8 @@ type RedisMock = {
 
 function createRedisMock(): RedisMock {
   return {
-    get: jest.fn<(key: string) => Promise<unknown>>(),
-    set: jest
+    get: vi.fn<(key: string) => Promise<unknown>>(),
+    set: vi
       .fn<(key: string, value: unknown, options: { ex: number }) => Promise<void>>()
       .mockResolvedValue(undefined),
   }
