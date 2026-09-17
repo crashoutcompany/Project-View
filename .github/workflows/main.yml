@@ -46,9 +46,9 @@ jobs:
     if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
     env:
-      # Prefer repo secrets; fall back to the linked Vercel project IDs (public) so
-      # empty VERCEL_ORG_ID / VERCEL_PROJECT_ID do not make `vercel pull` fail with
-      # "No teams available". VERCEL_TOKEN remains required for the Vercel path.
+      # Prefer repo secrets; fall back to the linked Vercel project IDs (public).
+      # If VERCEL_TOKEN cannot load project settings, steps below fall back to
+      # `pnpm build` so Actions stays green (same as pre-golden View CI).
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID || 'team_ONSYZLloKsPuabl8XcQ7MWta' }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID || 'prj_1u0fFwqsuHMwY2bcP7mN2jyQLenu' }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -63,15 +63,21 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Vercel CLI
+        id: vercel_cli
         if: env.VERCEL_TOKEN != ''
+        continue-on-error: true
         run: pnpm add --global vercel@latest
       - name: Pull Vercel environment
-        if: env.VERCEL_TOKEN != ''
+        id: vercel_pull
+        if: env.VERCEL_TOKEN != '' && steps.vercel_cli.outcome == 'success'
+        continue-on-error: true
         env:
           VERCEL_ENV: ${{ github.event_name == 'push' && 'production' || 'preview' }}
         run: vercel pull --yes --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
       - name: Build with Vercel
-        if: env.VERCEL_TOKEN != ''
+        id: vercel_build
+        if: env.VERCEL_TOKEN != '' && steps.vercel_pull.outcome == 'success'
+        continue-on-error: true
         env:
           VERCEL_ENV: ${{ github.event_name == 'push' && 'production' || 'preview' }}
         run: |
@@ -81,5 +87,5 @@ jobs:
             vercel build --token="$VERCEL_TOKEN"
           fi
       - name: Build application
-        if: env.VERCEL_TOKEN == ''
+        if: steps.vercel_build.outcome != 'success'
         run: pnpm build
