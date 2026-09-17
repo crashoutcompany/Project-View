@@ -4,8 +4,8 @@
 
 - Next.js 16 App Router, React 19, and TypeScript.
 - Tailwind CSS 4 with shadcn/ui and Radix UI primitives.
-- Jest and Testing Library for tests.
-- pnpm for dependency management.
+- Vitest and Testing Library for tests.
+- Node.js 24 and pnpm 10 for the development toolchain.
 - BotID protects server-action POST requests. The `/api/*` BotID rule is intentionally retained for future API routes.
 - YouTube Data API provides channel and live-stream data.
 - Upstash Redis is an optional cache. It is not the application's database.
@@ -30,7 +30,7 @@ There is no test-login route because Project View has no gated user pages.
 - `pnpm dev` — run the development server on port 3000.
 - `pnpm lint` — run ESLint.
 - `pnpm typecheck` — run TypeScript without emitting files.
-- `pnpm test` — run the Jest suite.
+- `pnpm test` — run the Vitest suite.
 - `pnpm build` — create the production Next.js build.
 
 Run lint, typecheck, tests, and build before handing off changes.
