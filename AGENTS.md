@@ -47,7 +47,7 @@ Treat root configuration, CI workflows, environment documentation, and shared mo
 
 - `lib/next-config.ts` — `// shared:next-config v1` (`withAppDefaults`), matching Z/blue/RDC. View-only knob: emit `exposeTestingApiInProductionBuild` only when true (stock Next rejects the key otherwise).
 - `eslint.config.mjs` — `// shared:eslint-config v1` (identical to Z/blue tip).
-- `.github/workflows/main.yml` — `# shared:ci-main` (v2 on tip) with View knobs: `HAS_E2E=false`, `NEEDS_PRISMA=false`, `USE_PRISMA_NEON=false`, `TEST_SCRIPT=test`.
+- `.github/workflows/main.yml` — `# shared:ci-main v2` with View knobs: `HAS_E2E=false`, `NEEDS_PRISMA=false`, `USE_PRISMA_NEON=false`, `TEST_SCRIPT=test`. Build job wires only `VERCEL_*` secrets (no auth/DB/PostHog).
 
 ### Neon branches workflow (intentionally omitted)
 
