@@ -1,0 +1,11 @@
+{
+  "$schema": "https://cursor.com/schemas/environment.schema.json",
+  "install": "pnpm install --frozen-lockfile",
+  "start": "pnpm dev",
+  "ports": [
+    {
+      "name": "Project View",
+      "port": 3000
+    }
+  ]
+}
