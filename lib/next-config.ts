@@ -55,15 +55,21 @@ export function withAppDefaults(
     ...rest
   } = config;
 
+  const exposeTestingApiInProductionBuild =
+    (experimental as ExperimentalWithTestingApi | undefined)
+      ?.exposeTestingApiInProductionBuild ?? isTestingApiExposed();
+
+  // Only set when true. Stock Next.js rejects this key; auth apps that support
+  // it opt in via env/config, and View never enables the testing API.
   const nextExperimental: ExperimentalWithTestingApi = {
     ...experimental,
     optimizePackageImports: unique([
       ...DEFAULT_OPTIMIZE_PACKAGES,
       ...(experimental?.optimizePackageImports ?? []),
     ]),
-    exposeTestingApiInProductionBuild:
-      (experimental as ExperimentalWithTestingApi | undefined)
-        ?.exposeTestingApiInProductionBuild ?? isTestingApiExposed(),
+    ...(exposeTestingApiInProductionBuild
+      ? { exposeTestingApiInProductionBuild: true }
+      : {}),
   };
 
   return {
