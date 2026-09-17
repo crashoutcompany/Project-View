@@ -42,3 +42,13 @@ Run lint, typecheck, tests, and build before handing off changes.
 ## Shared-file convention
 
 Treat root configuration, CI workflows, environment documentation, and shared modules under `lib/` and `components/ui/` as cross-cutting files. Search all usages before changing them, preserve existing exported contracts unless the task explicitly changes them, and keep related configuration and documentation synchronized. Keep infrastructure-only work separate from app behavior, UI, search, and cache changes.
+
+## Golden shared markers (View)
+
+- `lib/next-defaults.ts` — `// shared:next-defaults v2` (`withNextDefaults`). Body matches the org Next defaults helper; View does not enable PostHog ingest or auth testing APIs.
+- `eslint.config.mjs` — `// shared:eslint-config v1` (identical to Z/blue tip).
+- `.github/workflows/main.yml` — `# shared:ci-main v1` job shape with View knobs: `HAS_E2E=false`, `NEEDS_PRISMA=false`, `USE_PRISMA_NEON=false`, `TEST_SCRIPT=test`.
+
+### Neon branches workflow (intentionally omitted)
+
+View has no Postgres/Neon database and no authenticated e2e. Do **not** add `.github/workflows/neon-branches.yml` (`# shared:neon-branches v1/v2`) here: it would create unused preview DB branches and require Neon secrets this app does not use. Auth apps (Z/blue/RDC) keep that workflow; View keeps `HAS_E2E=false` and skips Neon entirely.
