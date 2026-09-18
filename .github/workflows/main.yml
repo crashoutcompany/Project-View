@@ -1,3 +1,4 @@
+# shared:ci-main v2
 name: CI
 
 on:
@@ -12,9 +13,35 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  HAS_TYPECHECK: "true"
+  HAS_E2E: "false"
+  NEEDS_PRISMA: "false"
+  TEST_SCRIPT: test
+  INSTALL_FLAGS: ""
+  USE_PRISMA_NEON: "false"
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/ci?schema=public
+  DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/ci?schema=public
+  BETTER_AUTH_SECRET: test-better-auth-secret-at-least-32-characters
+  TEST_AUTH_SECRET: test-auth-secret
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,12 +51,33 @@ jobs:
         with:
           node-version: "24"
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile ${{ env.INSTALL_FLAGS }}
+      - name: Apply Prisma schema
+        if: env.NEEDS_PRISMA == 'true'
+        run: |
+          pnpm exec prisma db push
+          pnpm exec prisma generate --sql
       - run: pnpm lint
-      - run: pnpm typecheck
+      - name: Typecheck
+        if: env.HAS_TYPECHECK == 'true'
+        run: pnpm typecheck
 
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,13 +87,20 @@ jobs:
         with:
           node-version: "24"
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - run: pnpm install --frozen-lockfile ${{ env.INSTALL_FLAGS }}
+      - name: Apply Prisma schema
+        if: env.NEEDS_PRISMA == 'true'
+        run: |
+          pnpm exec prisma db push
+          pnpm exec prisma generate --sql
+      - run: pnpm ${{ env.TEST_SCRIPT }}
 
   build:
     if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
     env:
+      # View has no auth/DB/PostHog app secrets. Only wire Vercel CLI linkage so
+      # empty auth/DB secrets cannot override values from `vercel pull`.
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -73,3 +128,78 @@ jobs:
           else
             vercel build --token="$VERCEL_TOKEN"
           fi
+
+  e2e:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # HAS_E2E=false: all steps below are skipped. No auth/Neon secrets wired.
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_E2E == 'true'
+      - uses: pnpm/action-setup@v4
+        if: env.HAS_E2E == 'true'
+        with:
+          version: 10.1.0
+      - uses: actions/setup-node@v4
+        if: env.HAS_E2E == 'true'
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Resolve Neon branch
+        if: env.HAS_E2E == 'true'
+        id: neon
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.number }}
+          HEAD_REF: ${{ github.head_ref }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            safe_ref="${HEAD_REF//\//-}"
+            printf 'name=preview/pr-%s-%s\n' "$PR_NUMBER" "$safe_ref" >> "$GITHUB_OUTPUT"
+            printf 'ephemeral=false\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'name=ci/e2e-%s\n' "$GIT_SHA" >> "$GITHUB_OUTPUT"
+            printf 'ephemeral=true\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or reuse Neon branch
+        if: env.HAS_E2E == 'true'
+        id: database
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ${{ steps.neon.outputs.name }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          database: ${{ secrets.NEON_DATABASE }}
+          role: ${{ secrets.NEON_ROLE }}
+          prisma: ${{ env.USE_PRISMA_NEON == 'true' }}
+
+      - name: Install dependencies
+        if: env.HAS_E2E == 'true'
+        env:
+          DATABASE_URL: ${{ steps.database.outputs.db_url_pooled }}
+          DIRECT_URL: ${{ steps.database.outputs.db_url }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        if: env.HAS_E2E == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run authenticated E2E
+        if: env.HAS_E2E == 'true'
+        env:
+          DATABASE_URL: ${{ steps.database.outputs.db_url_pooled }}
+          DIRECT_URL: ${{ steps.database.outputs.db_url }}
+          EXPOSE_TESTING_API: "1"
+        run: pnpm test:e2e
+
+      - name: Delete ephemeral Neon branch
+        if: always() && env.HAS_E2E == 'true' && steps.neon.outputs.ephemeral == 'true' && steps.database.outcome == 'success'
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ steps.database.outputs.branch_id }}
+          api_key: ${{ secrets.NEON_API_KEY }}
