@@ -45,9 +45,9 @@ Treat root configuration, CI workflows, environment documentation, and shared mo
 
 ## Golden shared markers (View)
 
-- `lib/next-defaults.ts` — `// shared:next-defaults v2` (`withNextDefaults`). Body matches the org Next defaults helper; View does not enable PostHog ingest or auth testing APIs.
+- `lib/next-config.ts` — `// shared:next-config v1` (`withAppDefaults`), matching Z/blue/RDC. View-only knob: emit `exposeTestingApiInProductionBuild` only when true (stock Next rejects the key otherwise).
 - `eslint.config.mjs` — `// shared:eslint-config v1` (identical to Z/blue tip).
-- `.github/workflows/main.yml` — `# shared:ci-main v1` job shape with View knobs: `HAS_E2E=false`, `NEEDS_PRISMA=false`, `USE_PRISMA_NEON=false`, `TEST_SCRIPT=test`.
+- `.github/workflows/main.yml` — `# shared:ci-main` (v2 on tip) with View knobs: `HAS_E2E=false`, `NEEDS_PRISMA=false`, `USE_PRISMA_NEON=false`, `TEST_SCRIPT=test`.
 
 ### Neon branches workflow (intentionally omitted)
 

@@ -1,4 +1,4 @@
-// shared:next-defaults v2
+// shared:next-config v1
 
 import type { NextConfig } from "next";
 
@@ -31,7 +31,7 @@ type RewriteList = Awaited<
   ReturnType<NonNullable<NextConfig["rewrites"]>>
 >;
 
-type NextDefaultsOptions = {
+type AppDefaultsOptions = {
   posthogIngest?: boolean;
 };
 
@@ -43,9 +43,9 @@ type ExperimentalWithTestingApi = NonNullable<NextConfig["experimental"]> & {
   exposeTestingApiInProductionBuild?: boolean;
 };
 
-export function withNextDefaults(
+export function withAppDefaults(
   config: NextConfig = {},
-  options: NextDefaultsOptions = {},
+  options: AppDefaultsOptions = {},
 ): NextConfig {
   const {
     experimental,
@@ -59,8 +59,8 @@ export function withNextDefaults(
     (experimental as ExperimentalWithTestingApi | undefined)
       ?.exposeTestingApiInProductionBuild ?? isTestingApiExposed();
 
-  // Only emit when true. Stock Next.js rejects this key; auth apps that
-  // recognize it opt in via env/config. View never enables the testing API.
+  // View knob: only emit when true. Stock Next.js rejects this key; auth apps
+  // that recognize it still opt in via env/config (HAS_E2E / EXPOSE_TESTING_API).
   const nextExperimental: ExperimentalWithTestingApi = {
     ...experimental,
     optimizePackageImports: unique([

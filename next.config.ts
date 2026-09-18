@@ -1,9 +1,9 @@
 import { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
 
-import { withNextDefaults } from "./lib/next-defaults";
+import { withAppDefaults } from "./lib/next-config";
 
-const nextConfig: NextConfig = withNextDefaults({
+const nextConfig: NextConfig = withAppDefaults({
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
