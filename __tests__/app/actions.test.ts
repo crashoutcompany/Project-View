@@ -110,4 +110,26 @@ describe("server actions", () => {
       "Access denied"
     )
   })
+
+  it("rejects oversized search queries before hitting the search service", async () => {
+    await expect(searchChannelsAction("a".repeat(101))).rejects.toThrow("Invalid query")
+    expect(mockGetSearchResults).not.toHaveBeenCalled()
+  })
+
+  it("caps how many channels one refresh can fan out to", async () => {
+    const ids = Array.from({ length: 51 }, (_, i) => `chan-${i}`)
+
+    await expect(refreshSelectedChannelsAction(ids)).rejects.toThrow("Too many channels")
+    expect(mockRefreshChannelLiveStatus).not.toHaveBeenCalled()
+  })
+
+  it("rejects malformed channel ids", async () => {
+    await expect(refreshSelectedChannelsAction(["chan-1", "../../etc"])).rejects.toThrow(
+      "Invalid channel ids"
+    )
+    await expect(
+      refreshSelectedChannelsAction("chan-1" as unknown as string[])
+    ).rejects.toThrow("Invalid channel ids")
+    expect(mockRefreshChannelLiveStatus).not.toHaveBeenCalled()
+  })
 })
