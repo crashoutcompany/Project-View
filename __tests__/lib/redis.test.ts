@@ -1,11 +1,11 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals"
+import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 // Uses the real @upstash/redis client against a server that never answers, to
 // check that our per-request abort signal rejects instead of hanging or

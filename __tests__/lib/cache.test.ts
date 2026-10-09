@@ -1,20 +1,20 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 type RedisMock = {
-  get: ReturnType<typeof jest.fn<(key: string) => Promise<unknown>>>
+  get: ReturnType<typeof vi.fn<(key: string) => Promise<unknown>>>
   set: ReturnType<
-    typeof jest.fn<(key: string, value: unknown, options: { ex: number }) => Promise<unknown>>
+    typeof vi.fn<(key: string, value: unknown, options: { ex: number }) => Promise<unknown>>
   >
 }
 
 const TIMEOUT_MS = 1000
-const mockGetRedis = jest.fn<() => RedisMock | null>()
+const mockGetRedis = vi.fn<() => RedisMock | null>()
 
-jest.unstable_mockModule("@/lib/redis", () => ({
+vi.doMock("@/lib/redis", () => ({
   getRedis: mockGetRedis,
   REDIS_TIMEOUT_MS: TIMEOUT_MS,
 }))
@@ -27,8 +27,8 @@ beforeAll(async () => {
 
 function createRedisMock(): RedisMock {
   return {
-    get: jest.fn<(key: string) => Promise<unknown>>(),
-    set: jest
+    get: vi.fn<(key: string) => Promise<unknown>>(),
+    set: vi
       .fn<(key: string, value: unknown, options: { ex: number }) => Promise<unknown>>()
       .mockResolvedValue("OK"),
   }
@@ -39,19 +39,19 @@ const connectionError = new TypeError("fetch failed", {
 })
 
 describe("cache", () => {
-  let warn: ReturnType<typeof jest.spyOn>
-  let info: ReturnType<typeof jest.spyOn>
+  let warn: ReturnType<typeof vi.spyOn>
+  let info: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     cache.resetCacheStateForTests()
     mockGetRedis.mockReset()
-    warn = jest.spyOn(console, "warn").mockImplementation(() => {})
-    info = jest.spyOn(console, "info").mockImplementation(() => {})
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    info = vi.spyOn(console, "info").mockImplementation(() => {})
   })
 
   afterEach(() => {
-    jest.useRealTimers()
-    jest.restoreAllMocks()
+    vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it("reads and writes through Redis when it is healthy", async () => {
@@ -103,13 +103,13 @@ describe("cache", () => {
   })
 
   it("times out a hung Redis call instead of stalling the caller", async () => {
-    jest.useFakeTimers()
+    vi.useFakeTimers()
     const redis = createRedisMock()
     redis.get.mockReturnValue(new Promise(() => {}))
     mockGetRedis.mockReturnValue(redis)
 
     const read = cache.readCache("slow")
-    await jest.advanceTimersByTimeAsync(TIMEOUT_MS)
+    await vi.advanceTimersByTimeAsync(TIMEOUT_MS)
 
     await expect(read).resolves.toBeNull()
     expect(warn).toHaveBeenCalledTimes(1)
@@ -117,13 +117,13 @@ describe("cache", () => {
   })
 
   it("retries Redis after the cooldown and logs the recovery", async () => {
-    jest.useFakeTimers()
+    vi.useFakeTimers()
     const redis = createRedisMock()
     redis.get.mockRejectedValueOnce(connectionError).mockResolvedValue("fresh")
     mockGetRedis.mockReturnValue(redis)
 
     await expect(cache.readCache("a")).resolves.toBeNull()
-    jest.advanceTimersByTime(cache.CACHE_COOLDOWN_MS)
+    vi.advanceTimersByTime(cache.CACHE_COOLDOWN_MS)
     await expect(cache.readCache("a")).resolves.toBe("fresh")
 
     expect(redis.get).toHaveBeenCalledTimes(2)

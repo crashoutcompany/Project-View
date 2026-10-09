@@ -1,8 +1,8 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
-import { describe, expect, it, jest } from "@jest/globals"
+import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 
 import type { ChannelResult } from "@/lib/types"
@@ -26,7 +26,7 @@ function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
 
 describe("ChannelCombobox", () => {
   it("renders the loading state and forwards query changes", () => {
-    const onQueryChange = jest.fn()
+    const onQueryChange = vi.fn()
 
     render(
       <ChannelCombobox
@@ -52,7 +52,7 @@ describe("ChannelCombobox", () => {
   })
 
   it("renders matches and adds a selected channel", () => {
-    const onAddChannel = jest.fn()
+    const onAddChannel = vi.fn()
     const channel = makeChannel()
 
     render(
