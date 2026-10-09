@@ -7,6 +7,7 @@ import {
   LIVE_CACHE_TTL_LIVE_SECONDS,
   LIVE_CACHE_TTL_OFFLINE_SECONDS,
   normalizeQuery,
+  sanitizeChannelIds,
   SEARCH_CACHE_TTL_SECONDS,
   searchCacheKey,
   SEARCH_RESULT_LIMIT,
@@ -182,7 +183,7 @@ export async function getSelectedChannels(channelIds: string[]) {
     return []
   }
 
-  const uniqueIds = Array.from(new Set(channelIds.filter(Boolean)))
+  const uniqueIds = sanitizeChannelIds(channelIds)
   const channels = await Promise.all(uniqueIds.map((channelId) => getChannelById(channelId)))
 
   return withLiveStatus(channels.filter((channel): channel is BaseChannel => Boolean(channel)))
