@@ -47,8 +47,8 @@ Treat root configuration, CI workflows, environment documentation, and shared mo
 
 - `lib/next-config.ts` — `// shared:next-config v1` (`withAppDefaults`), matching Z/blue/RDC. View-only knob: emit `exposeTestingApiInProductionBuild` only when true (stock Next rejects the key otherwise).
 - `eslint.config.mjs` — `// shared:eslint-config v1` (identical to Z/blue tip).
-- `.github/workflows/main.yml` — `# shared:ci-main v2` with View knobs: `HAS_E2E=false`, `NEEDS_PRISMA=false`, `USE_PRISMA_NEON=false`, `TEST_SCRIPT=test`. Build job wires only `VERCEL_*` secrets (no auth/DB/PostHog).
+- `.github/workflows/main.yml` — calls the reusable `crashoutcompany/.github` `ci.yml@v1` workflow (lint, typecheck, test, Vercel build) with `has-e2e: false`; `react-doctor.yml` calls the shared `react-doctor.yml@v1`. Change shared CI behavior in `crashoutcompany/.github`, not here.
 
 ### Neon branches workflow (intentionally omitted)
 
-View has no Postgres/Neon database and no authenticated e2e. Do **not** add `.github/workflows/neon-branches.yml` (`# shared:neon-branches v1/v2`) here: it would create unused preview DB branches and require Neon secrets this app does not use. Auth apps (Z/blue/RDC) keep that workflow; View keeps `HAS_E2E=false` and skips Neon entirely.
+View has no Postgres/Neon database and no authenticated e2e. Do **not** add `.github/workflows/neon-branches.yml` (`# shared:neon-branches v1/v2`) here: it would create unused preview DB branches and require Neon secrets this app does not use. Auth apps (Z/blue/RDC) keep that workflow; View keeps `has-e2e: false` and skips Neon entirely.
