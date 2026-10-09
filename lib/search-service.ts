@@ -24,6 +24,41 @@ import {
   youtubeConfigured,
 } from "@/lib/youtube"
 
+let warnedYouTubeUnavailable = false
+
+// YouTube errors (quota, bad key, outage, timeout) degrade the result instead
+// of failing the page or action. Fallbacks are never cached.
+async function callYouTube<T>(call: () => Promise<T>) {
+  try {
+    const value = await call()
+    if (warnedYouTubeUnavailable) {
+      warnedYouTubeUnavailable = false
+      console.info("[youtube] YouTube API reachable again.")
+    }
+    return { ok: true as const, value }
+  } catch (error) {
+    if (!warnedYouTubeUnavailable) {
+      warnedYouTubeUnavailable = true
+      console.warn("[youtube] YouTube API call failed; serving degraded results.", error)
+    }
+    return { ok: false as const }
+  }
+}
+
+export function resetYouTubeStateForTests() {
+  warnedYouTubeUnavailable = false
+}
+
+function unknownLiveStatus(): LiveStatus {
+  return { status: "unknown", checkedAt: new Date().toISOString() }
+}
+
+// Keeps a selected channel on screen (and in the URL) while its details
+// can't be fetched, rather than dropping it from the user's selection.
+function placeholderChannel(channelId: string): BaseChannel {
+  return { channelId, title: channelId, description: "", thumbnailUrl: "" }
+}
+
 function dedupeChannels(channels: BaseChannel[]) {
   return Array.from(new Map(channels.map((channel) => [channel.channelId, channel])).values())
 }
@@ -42,8 +77,12 @@ async function getChannelById(channelId: string) {
     return cached
   }
 
-  const channels = await getChannelsByIds([channelId])
-  const channel = channels[0] ?? null
+  const response = await callYouTube(() => getChannelsByIds([channelId]))
+  if (!response.ok) {
+    return placeholderChannel(channelId)
+  }
+
+  const channel = response.value[0] ?? null
 
   if (channel) {
     await writeCache(channelCacheKey(channelId), channel, CHANNEL_CACHE_TTL_SECONDS)
@@ -58,7 +97,16 @@ async function getLiveStatus(channelId: string) {
     return cached
   }
 
-  const live = await getLiveVideoForChannel(channelId)
+  return fetchLiveStatus(channelId)
+}
+
+async function fetchLiveStatus(channelId: string) {
+  const response = await callYouTube(() => getLiveVideoForChannel(channelId))
+  if (!response.ok) {
+    return unknownLiveStatus()
+  }
+
+  const live = response.value
   const ttl =
     live.status === "live"
       ? LIVE_CACHE_TTL_LIVE_SECONDS
@@ -134,14 +182,18 @@ export async function getSearchResults(query: string): Promise<SearchPayload> {
   }
 
   const cachedChannels = await readCache<BaseChannel[]>(searchCacheKey(normalizedQuery))
-  const channels =
-    cachedChannels ??
-    (await searchChannels(normalizedQuery, SEARCH_RESULT_LIMIT)).slice(
-      0,
-      SEARCH_RESULT_LIMIT
-    )
+  let channels = cachedChannels
 
-  if (!cachedChannels) {
+  if (!channels) {
+    const response = await callYouTube(() =>
+      searchChannels(normalizedQuery, SEARCH_RESULT_LIMIT)
+    )
+    if (!response.ok) {
+      return { query: normalizedQuery, channels: [], cached: false, source: "search" }
+    }
+
+    channels = response.value.slice(0, SEARCH_RESULT_LIMIT)
+
     await writeCache(
       searchCacheKey(normalizedQuery),
       channels,
@@ -182,16 +234,8 @@ export async function refreshChannelLiveStatus(channelId: string) {
     return null
   }
 
-  const live = await getLiveVideoForChannel(channelId)
-  const ttl =
-    live.status === "live"
-      ? LIVE_CACHE_TTL_LIVE_SECONDS
-      : LIVE_CACHE_TTL_OFFLINE_SECONDS
-
-  await writeCache(liveCacheKey(channelId), live, ttl)
-
   return {
     ...channel,
-    live,
+    live: await fetchLiveStatus(channelId),
   } satisfies ChannelResult
 }
