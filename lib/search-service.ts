@@ -15,8 +15,7 @@ import {
   SEEDED_CHANNEL_LIMIT,
   SEED_CACHE_TTL_SECONDS,
 } from "@/lib/cache-keys"
-import { hasRedisEnv } from "@/lib/env"
-import { getRedis } from "@/lib/redis"
+import { readCache, writeCache } from "@/lib/cache"
 import { BaseChannel, ChannelResult, LiveStatus, SearchPayload } from "@/lib/types"
 import {
   getChannelsByIds,
@@ -24,24 +23,6 @@ import {
   searchChannels,
   youtubeConfigured,
 } from "@/lib/youtube"
-
-async function readCache<T>(key: string) {
-  const redis = getRedis()
-  if (!redis) {
-    return null
-  }
-
-  return (await redis.get<T>(key)) ?? null
-}
-
-async function writeCache<T>(key: string, value: T, ttlSeconds: number) {
-  const redis = getRedis()
-  if (!redis) {
-    return
-  }
-
-  await redis.set(key, value, { ex: ttlSeconds })
-}
 
 function dedupeChannels(channels: BaseChannel[]) {
   return Array.from(new Map(channels.map((channel) => [channel.channelId, channel])).values())
@@ -110,8 +91,9 @@ async function withLiveStatus(channels: BaseChannel[]) {
   return liveStates
 }
 
+// Redis is optional: without it every request goes straight to the YouTube API.
 export function projectConfigured() {
-  return youtubeConfigured() && hasRedisEnv()
+  return youtubeConfigured()
 }
 
 export async function getSeedResults(): Promise<SearchPayload> {
