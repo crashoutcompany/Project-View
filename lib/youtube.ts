@@ -4,6 +4,8 @@ import { getRequiredEnv, hasYouTubeEnv } from "@/lib/env";
 import { BaseChannel, LiveStatus } from "@/lib/types";
 
 const YOUTUBE_API_BASE_URL = "https://www.googleapis.com/youtube/v3";
+// A hung YouTube request shouldn't stall rendering; callers fall back on errors.
+export const YOUTUBE_TIMEOUT_MS = 5000;
 
 type SearchResponse = {
   items?: Array<{
@@ -56,6 +58,18 @@ function pickThumbnailUrl(
   );
 }
 
+// e.g. "quotaExceeded" or "keyInvalid", so logs say why YouTube failed.
+async function readErrorReason(response: Response) {
+  try {
+    const body = (await response.json()) as {
+      error?: { errors?: Array<{ reason?: string }> };
+    };
+    return body.error?.errors?.[0]?.reason ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function youtubeFetch<T>(
   path: string,
   params: Record<string, string | number | undefined>,
@@ -75,11 +89,15 @@ async function youtubeFetch<T>(
     `${YOUTUBE_API_BASE_URL}${path}?${searchParams}`,
     {
       cache: "no-store",
+      signal: AbortSignal.timeout(YOUTUBE_TIMEOUT_MS),
     },
   );
 
   if (!response.ok) {
-    throw new Error(`Request failed with ${response.status}`);
+    const reason = await readErrorReason(response);
+    throw new Error(
+      `Request failed with ${response.status}${reason ? ` (${reason})` : ""}`,
+    );
   }
 
   return (await response.json()) as T;

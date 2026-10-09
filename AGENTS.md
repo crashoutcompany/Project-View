@@ -20,7 +20,7 @@ The supported environment variable names are:
 - `KV_REST_API_URL`
 - `KV_REST_API_TOKEN`
 
-Never commit or document environment variable values. The app must degrade gracefully when configuration is absent: missing YouTube or Redis configuration should leave the project unconfigured instead of crashing the page.
+Never commit or document environment variable values. The app must degrade gracefully instead of crashing the page. Missing `YOUTUBE_API_KEY` leaves the project unconfigured. Redis is optional: when the `KV_*` variables are missing, or Redis errors or times out, cache calls in `lib/cache.ts` fail soft and requests go straight to YouTube. YouTube failures (quota, bad key, timeout) degrade results in `lib/search-service.ts` and are never cached. Both log one warning per outage.
 
 There is no test-login route because Project View has no gated user pages.
 
