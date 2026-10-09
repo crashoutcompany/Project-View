@@ -1,28 +1,28 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
-import { beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import type { ReactElement } from "react"
 import type { ChannelResult, SearchPayload } from "@/lib/types"
 
-const mockGetSearchResults = jest.fn<(query: string) => Promise<SearchPayload>>()
-const mockGetSeedResults = jest.fn<() => Promise<SearchPayload>>()
-const mockGetSelectedChannels = jest.fn<(channelIds: string[]) => Promise<ChannelResult[]>>()
-const mockProjectConfigured = jest.fn<() => boolean>()
-const mockMultiwatchApp = jest.fn<(props: Record<string, unknown>) => ReactElement>(
+const mockGetSearchResults = vi.fn<(query: string) => Promise<SearchPayload>>()
+const mockGetSeedResults = vi.fn<() => Promise<SearchPayload>>()
+const mockGetSelectedChannels = vi.fn<(channelIds: string[]) => Promise<ChannelResult[]>>()
+const mockProjectConfigured = vi.fn<() => boolean>()
+const mockMultiwatchApp = vi.fn<(props: Record<string, unknown>) => ReactElement>(
   () => <div data-testid="multiwatch-app" />
 )
 
-jest.unstable_mockModule("@/lib/search-service", () => ({
+vi.doMock("@/lib/search-service", () => ({
   getSearchResults: mockGetSearchResults,
   getSeedResults: mockGetSeedResults,
   getSelectedChannels: mockGetSelectedChannels,
   projectConfigured: mockProjectConfigured,
 }))
 
-jest.unstable_mockModule("@/components/multiwatch-app", () => ({
+vi.doMock("@/components/multiwatch-app", () => ({
   MultiwatchApp: mockMultiwatchApp,
 }))
 

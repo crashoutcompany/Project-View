@@ -1,22 +1,22 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 
-import { beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ChannelResult, SearchPayload } from "@/lib/types"
 
-const mockCheckBotId = jest.fn<() => Promise<{ isBot: boolean }>>()
-const mockGetSearchResults = jest.fn<(query: string) => Promise<SearchPayload>>()
-const mockProjectConfigured = jest.fn<() => boolean>()
-const mockRefreshChannelLiveStatus = jest.fn<
+const mockCheckBotId = vi.fn<() => Promise<{ isBot: boolean }>>()
+const mockGetSearchResults = vi.fn<(query: string) => Promise<SearchPayload>>()
+const mockProjectConfigured = vi.fn<() => boolean>()
+const mockRefreshChannelLiveStatus = vi.fn<
   (channelId: string) => Promise<ChannelResult | null>
 >()
 
-jest.unstable_mockModule("botid/server", () => ({
+vi.doMock("botid/server", () => ({
   checkBotId: mockCheckBotId,
 }))
 
-jest.unstable_mockModule("@/lib/search-service", () => ({
+vi.doMock("@/lib/search-service", () => ({
   getSearchResults: mockGetSearchResults,
   projectConfigured: mockProjectConfigured,
   refreshChannelLiveStatus: mockRefreshChannelLiveStatus,

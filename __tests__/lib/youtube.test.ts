@@ -1,13 +1,13 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 
-import { beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
-const mockGetRequiredEnv = jest.fn<(name: string) => string>()
-const mockHasYouTubeEnv = jest.fn<() => boolean>()
+const mockGetRequiredEnv = vi.fn<(name: string) => string>()
+const mockHasYouTubeEnv = vi.fn<() => boolean>()
 
-jest.unstable_mockModule("@/lib/env", () => ({
+vi.doMock("@/lib/env", () => ({
   getRequiredEnv: mockGetRequiredEnv,
   hasYouTubeEnv: mockHasYouTubeEnv,
 }))
@@ -35,7 +35,7 @@ function createJsonResponse(payload: unknown, ok = true, status = 200) {
 }
 
 describe("youtube helpers", () => {
-  const fetchMock = jest.fn<typeof fetch>()
+  const fetchMock = vi.fn<typeof fetch>()
 
   beforeEach(() => {
     mockGetRequiredEnv.mockReturnValue("test-api-key")
@@ -135,7 +135,7 @@ describe("youtube helpers", () => {
   })
 
   it("returns an offline live status when no live video is present", async () => {
-    const isoSpy = jest
+    const isoSpy = vi
       .spyOn(Date.prototype, "toISOString")
       .mockReturnValue("2026-03-06T00:00:00.000Z")
 
@@ -150,7 +150,7 @@ describe("youtube helpers", () => {
   })
 
   it("returns a live status with fallbacks when a live video exists", async () => {
-    const isoSpy = jest
+    const isoSpy = vi
       .spyOn(Date.prototype, "toISOString")
       .mockReturnValue("2026-03-06T01:23:45.000Z")
 

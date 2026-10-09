@@ -1,8 +1,8 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
-import { describe, expect, it, jest } from "@jest/globals"
+import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 
 import type { ChannelResult } from "@/lib/types"
@@ -42,7 +42,7 @@ describe("ChannelResults", () => {
   })
 
   it("renders a tooltip title and add action for unselected channels", () => {
-    const onAddChannel = jest.fn()
+    const onAddChannel = vi.fn()
     const channel = makeChannel()
 
     render(
@@ -68,7 +68,7 @@ describe("ChannelResults", () => {
   })
 
   it("renders a remove action for selected channels", () => {
-    const onRemoveChannel = jest.fn()
+    const onRemoveChannel = vi.fn()
 
     render(
       <ChannelResults

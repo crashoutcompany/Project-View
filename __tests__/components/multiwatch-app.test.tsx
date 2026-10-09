@@ -1,24 +1,24 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
-import { beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { ComponentProps } from "react"
 
 import type { ChannelResult, SearchPayload } from "@/lib/types"
 
-const mockSearchChannelsAction = jest.fn<(query: string) => Promise<SearchPayload>>()
-const mockRefreshSelectedChannelsAction = jest.fn<
+const mockSearchChannelsAction = vi.fn<(query: string) => Promise<SearchPayload>>()
+const mockRefreshSelectedChannelsAction = vi.fn<
   (channelIds: string[]) => Promise<ChannelResult[]>
 >()
 
-jest.unstable_mockModule("@/app/actions", () => ({
+vi.doMock("@/app/actions", () => ({
   searchChannelsAction: mockSearchChannelsAction,
   refreshSelectedChannelsAction: mockRefreshSelectedChannelsAction,
 }))
 
-jest.unstable_mockModule("@/components/channel-combobox", () => ({
+vi.doMock("@/components/channel-combobox", () => ({
   ChannelCombobox: ({
     query,
     results,
@@ -51,7 +51,7 @@ jest.unstable_mockModule("@/components/channel-combobox", () => ({
   ),
 }))
 
-jest.unstable_mockModule("@/components/channel-results", () => ({
+vi.doMock("@/components/channel-results", () => ({
   ChannelResults: ({
     title,
     channels,
@@ -85,7 +85,7 @@ jest.unstable_mockModule("@/components/channel-results", () => ({
   ),
 }))
 
-jest.unstable_mockModule("@/components/live-grid", () => ({
+vi.doMock("@/components/live-grid", () => ({
   LiveGrid: ({
     channels,
     activeAudioChannelId,
@@ -140,13 +140,13 @@ function renderApp(overrides: Partial<ComponentProps<typeof MultiwatchApp>> = {}
 
 describe("MultiwatchApp", () => {
   beforeEach(() => {
-    jest.useFakeTimers()
     mockSearchChannelsAction.mockReset()
     mockRefreshSelectedChannelsAction.mockReset()
     window.history.pushState({}, "", "/")
   })
 
   it("debounces searches, trims the query, and updates results", async () => {
+    vi.useFakeTimers()
     mockSearchChannelsAction.mockResolvedValueOnce({
       query: "alpha",
       channels: [makeChannel({ channelId: "chan-2", title: "Result Two" })],
@@ -163,9 +163,9 @@ describe("MultiwatchApp", () => {
     expect(mockSearchChannelsAction).not.toHaveBeenCalled()
 
     await act(async () => {
-      jest.advanceTimersByTime(300)
-      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(300)
     })
+    vi.useRealTimers()
 
     await waitFor(() => {
       expect(mockSearchChannelsAction).toHaveBeenCalledWith("Alpha")
@@ -222,6 +222,7 @@ describe("MultiwatchApp", () => {
   })
 
   it("does not search when the project is unconfigured", () => {
+    vi.useFakeTimers()
     renderApp({
       configured: false,
     })
@@ -232,14 +233,15 @@ describe("MultiwatchApp", () => {
     })
 
     act(() => {
-      jest.advanceTimersByTime(300)
+      vi.advanceTimersByTime(300)
     })
 
     expect(mockSearchChannelsAction).not.toHaveBeenCalled()
   })
 
   it("logs search errors instead of crashing", async () => {
-    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {})
+    vi.useFakeTimers()
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     mockSearchChannelsAction.mockRejectedValueOnce(new Error("boom"))
 
     renderApp()
@@ -248,9 +250,9 @@ describe("MultiwatchApp", () => {
     })
 
     await act(async () => {
-      jest.advanceTimersByTime(300)
-      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(300)
     })
+    vi.useRealTimers()
 
     await waitFor(() => {
       expect(errorSpy).toHaveBeenCalled()
