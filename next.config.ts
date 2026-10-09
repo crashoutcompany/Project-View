@@ -1,9 +1,9 @@
 import { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
 
-const nextConfig: NextConfig = {
-  cacheComponents: true,
-  reactCompiler: true,
+import { withAppDefaults } from "./lib/next-config";
+
+const nextConfig: NextConfig = withAppDefaults({
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
@@ -13,6 +13,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "static.wikia.nocookie.net" },
     ],
   },
-};
+});
 
 export default withBotId(nextConfig);
