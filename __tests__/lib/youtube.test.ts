@@ -188,4 +188,22 @@ describe("youtube helpers", () => {
 
     await expect(searchChannels("blocked")).rejects.toThrow("Request failed with 403")
   })
+
+  it("includes the YouTube error reason, such as an exhausted quota", async () => {
+    fetchMock.mockResolvedValueOnce(
+      createJsonResponse({ error: { errors: [{ reason: "quotaExceeded" }] } }, false, 403)
+    )
+
+    await expect(searchChannels("blocked")).rejects.toThrow(
+      "Request failed with 403 (quotaExceeded)"
+    )
+  })
+
+  it("sends a timeout signal with every request", async () => {
+    fetchMock.mockResolvedValueOnce(createJsonResponse({ items: [] }))
+
+    await searchChannels("anything")
+
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal)
+  })
 })
