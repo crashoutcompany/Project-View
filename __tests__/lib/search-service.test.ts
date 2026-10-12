@@ -18,7 +18,6 @@ import {
   seedCacheKey,
 } from "@/lib/cache-keys"
 
-const mockHasRedisEnv = vi.fn<() => boolean>()
 const mockGetRedis = vi.fn<() => RedisMock | null>()
 const mockGetChannelsByIds = vi.fn<(channelIds: string[]) => Promise<BaseChannel[]>>()
 const mockGetLiveVideoForChannel = vi.fn<(channelId: string) => Promise<LiveStatus>>()
@@ -27,12 +26,9 @@ const mockSearchChannels = vi.fn<
 >()
 const mockYoutubeConfigured = vi.fn<() => boolean>()
 
-vi.doMock("@/lib/env", () => ({
-  hasRedisEnv: mockHasRedisEnv,
-}))
-
 vi.doMock("@/lib/redis", () => ({
   getRedis: mockGetRedis,
+  REDIS_TIMEOUT_MS: 1000,
 }))
 
 vi.doMock("@/lib/youtube", () => ({
@@ -47,6 +43,8 @@ let getSeedResults: typeof import("@/lib/search-service").getSeedResults
 let getSelectedChannels: typeof import("@/lib/search-service").getSelectedChannels
 let projectConfigured: typeof import("@/lib/search-service").projectConfigured
 let refreshChannelLiveStatus: typeof import("@/lib/search-service").refreshChannelLiveStatus
+let resetCacheStateForTests: typeof import("@/lib/cache").resetCacheStateForTests
+let resetYouTubeStateForTests: typeof import("@/lib/search-service").resetYouTubeStateForTests
 
 beforeAll(async () => {
   ;({
@@ -55,7 +53,9 @@ beforeAll(async () => {
     getSelectedChannels,
     projectConfigured,
     refreshChannelLiveStatus,
+    resetYouTubeStateForTests,
   } = await import("@/lib/search-service"))
+  ;({ resetCacheStateForTests } = await import("@/lib/cache"))
 })
 
 type RedisMock = {
@@ -78,7 +78,10 @@ function createRedisMock(): RedisMock {
 
 describe("search service", () => {
   beforeEach(() => {
-    mockHasRedisEnv.mockReturnValue(true)
+    resetCacheStateForTests()
+    resetYouTubeStateForTests()
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    vi.spyOn(console, "info").mockImplementation(() => {})
     mockYoutubeConfigured.mockReturnValue(true)
     mockSearchChannels.mockReset()
     mockGetChannelsByIds.mockReset()
@@ -90,6 +93,12 @@ describe("search service", () => {
     mockYoutubeConfigured.mockReturnValueOnce(false)
 
     expect(projectConfigured()).toBe(false)
+  })
+
+  it("stays configured without Redis, since the cache is optional", () => {
+    mockGetRedis.mockReturnValue(null)
+
+    expect(projectConfigured()).toBe(true)
   })
 
   it("returns an empty seed payload when the project is not configured", async () => {
@@ -402,5 +411,109 @@ describe("search service", () => {
     mockGetChannelsByIds.mockResolvedValue([])
 
     await expect(refreshChannelLiveStatus("missing")).resolves.toBeNull()
+  })
+
+  it("serves search results from YouTube when every Redis call fails", async () => {
+    const redis = createRedisMock()
+    const outage = new TypeError("fetch failed", {
+      cause: new Error("getaddrinfo ENOTFOUND example.upstash.io"),
+    })
+    redis.get.mockRejectedValue(outage)
+    redis.set.mockRejectedValue(outage)
+    mockGetRedis.mockReturnValue(redis)
+    mockSearchChannels.mockResolvedValue([
+      { channelId: "chan-1", title: "Channel One", description: "", thumbnailUrl: "" },
+    ])
+    mockGetLiveVideoForChannel.mockResolvedValue({
+      status: "offline",
+      checkedAt: "2026-03-06T00:00:00.000Z",
+    })
+
+    await expect(getSearchResults("channel")).resolves.toMatchObject({
+      query: "channel",
+      cached: false,
+      channels: [{ channelId: "chan-1", live: { status: "offline" } }],
+    })
+    mockGetChannelsByIds.mockResolvedValue([
+      { channelId: "chan-2", title: "Channel Two", description: "", thumbnailUrl: "" },
+    ])
+    await expect(getSelectedChannels(["chan-2"])).resolves.toMatchObject([
+      { channelId: "chan-2", live: { status: "offline" } },
+    ])
+    expect(mockSearchChannels).toHaveBeenCalledTimes(1)
+    expect(console.warn).toHaveBeenCalledTimes(1)
+  })
+
+  describe("when the YouTube API fails", () => {
+    const quotaError = new Error("Request failed with 403 (quotaExceeded)")
+
+    it("returns empty search results and caches nothing", async () => {
+      const redis = createRedisMock()
+      redis.get.mockResolvedValue(null)
+      mockGetRedis.mockReturnValue(redis)
+      mockSearchChannels.mockRejectedValue(quotaError)
+
+      await expect(getSearchResults("channel")).resolves.toEqual({
+        query: "channel",
+        channels: [],
+        cached: false,
+        source: "search",
+      })
+      expect(redis.set).not.toHaveBeenCalled()
+      expect(console.warn).toHaveBeenCalledTimes(1)
+    })
+
+    it("keeps selected channels with an unknown live state and does not cache it", async () => {
+      const redis = createRedisMock()
+      redis.get.mockImplementation(async (key: string) =>
+        key === channelCacheKey("chan-1")
+          ? { channelId: "chan-1", title: "Cached", description: "", thumbnailUrl: "c.jpg" }
+          : null
+      )
+      mockGetRedis.mockReturnValue(redis)
+      mockGetChannelsByIds.mockRejectedValue(quotaError)
+      mockGetLiveVideoForChannel.mockRejectedValue(quotaError)
+
+      await expect(getSelectedChannels(["chan-1", "chan-2"])).resolves.toEqual([
+        {
+          channelId: "chan-1",
+          title: "Cached",
+          description: "",
+          thumbnailUrl: "c.jpg",
+          live: { status: "unknown", checkedAt: expect.any(String) },
+        },
+        {
+          channelId: "chan-2",
+          title: "chan-2",
+          description: "",
+          thumbnailUrl: "",
+          live: { status: "unknown", checkedAt: expect.any(String) },
+        },
+      ])
+      expect(redis.set).not.toHaveBeenCalled()
+      expect(console.warn).toHaveBeenCalledTimes(1)
+    })
+
+    it("refreshes to an unknown live state instead of dropping the channel", async () => {
+      mockGetRedis.mockReturnValue(null)
+      mockGetChannelsByIds.mockRejectedValue(quotaError)
+      mockGetLiveVideoForChannel.mockRejectedValue(quotaError)
+
+      await expect(refreshChannelLiveStatus("chan-1")).resolves.toMatchObject({
+        channelId: "chan-1",
+        live: { status: "unknown" },
+      })
+    })
+
+    it("logs recovery once YouTube answers again", async () => {
+      mockGetRedis.mockReturnValue(null)
+      mockSearchChannels.mockRejectedValueOnce(quotaError).mockResolvedValueOnce([])
+
+      await getSearchResults("one")
+      await getSearchResults("two")
+
+      expect(console.warn).toHaveBeenCalledTimes(2) // missing-env cache warning + YouTube
+      expect(console.info).toHaveBeenCalledWith("[youtube] YouTube API reachable again.")
+    })
   })
 })
