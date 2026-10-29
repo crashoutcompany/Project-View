@@ -1,7 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 
+import { LiveBadge } from "@/components/live-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,6 +19,7 @@ type ChannelResultsProps = {
   channels: ChannelResult[];
   selectedIds: string[];
   emptyMessage: string;
+  now: number;
   onAddChannel: (channel: ChannelResult) => void;
   onRemoveChannel: (channelId: string) => void;
 };
@@ -37,6 +38,7 @@ export function ChannelResults({
   channels,
   selectedIds,
   emptyMessage,
+  now,
   onAddChannel,
   onRemoveChannel,
 }: ChannelResultsProps) {
@@ -60,15 +62,9 @@ export function ChannelResults({
             <Card
               key={channel.channelId}
               size="sm"
-              className="border border-border/70 bg-background/70 relative overflow-visible"
+              className="border border-border/70 bg-background/70"
             >
               <CardHeader>
-                <Badge
-                  variant={isLive ? "default" : "secondary"}
-                  className="uppercase absolute top-0 -left-2 z-10"
-                >
-                  {channel.live.status}
-                </Badge>
                 <div
                   className="flex min-w-0 items-start gap-3"
                   title={`${channel.title}\n${channel.description || "No description available."}`}
@@ -82,6 +78,7 @@ export function ChannelResults({
                   </Avatar>
                   <div className="min-w-0 flex-1">
                     <CardTitle className="truncate">{channel.title}</CardTitle>
+                    <LiveBadge live={channel.live} now={now} className="mt-1" />
                     <CardDescription className="mt-1 truncate">
                       {channel.description || "No description available."}
                     </CardDescription>

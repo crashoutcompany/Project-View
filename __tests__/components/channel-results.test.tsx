@@ -33,6 +33,7 @@ describe("ChannelResults", () => {
         channels={[]}
         selectedIds={[]}
         emptyMessage="Nothing here"
+        now={0}
         onAddChannel={() => {}}
         onRemoveChannel={() => {}}
       />
@@ -52,12 +53,13 @@ describe("ChannelResults", () => {
         channels={[channel]}
         selectedIds={[]}
         emptyMessage="Nothing here"
+        now={0}
         onAddChannel={onAddChannel}
         onRemoveChannel={() => {}}
       />
     )
 
-    expect(screen.getByText("live")).toBeInTheDocument()
+    expect(screen.getByText("Live")).toBeInTheDocument()
     expect(
       screen.getByTitle((value) => value.includes("Channel One") && value.includes("Description"))
     ).toBeInTheDocument()
@@ -65,6 +67,34 @@ describe("ChannelResults", () => {
     fireEvent.click(screen.getByRole("button", { name: /add/i }))
 
     expect(onAddChannel).toHaveBeenCalledWith(channel)
+  })
+
+  it("shows viewer count and uptime on live channels", () => {
+    render(
+      <ChannelResults
+        title="Results"
+        description="Search results"
+        channels={[
+          makeChannel({
+            live: {
+              status: "live",
+              checkedAt: "x",
+              videoId: "video-1",
+              startedAt: "2026-03-06T00:00:00.000Z",
+              viewerCount: 1500,
+            },
+          }),
+        ]}
+        selectedIds={[]}
+        emptyMessage="Nothing here"
+        now={Date.parse("2026-03-06T01:05:00.000Z")}
+        onAddChannel={() => {}}
+        onRemoveChannel={() => {}}
+      />
+    )
+
+    expect(screen.getByTitle("1500 watching")).toHaveTextContent("1.5K watching")
+    expect(screen.getByText("live 1h 5m")).toBeInTheDocument()
   })
 
   it("renders a remove action for selected channels", () => {
@@ -77,6 +107,7 @@ describe("ChannelResults", () => {
         channels={[makeChannel({ live: { status: "offline", checkedAt: "x" } })]}
         selectedIds={["chan-1"]}
         emptyMessage="Nothing here"
+        now={0}
         onAddChannel={() => {}}
         onRemoveChannel={onRemoveChannel}
       />
@@ -85,6 +116,6 @@ describe("ChannelResults", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Channel One" }))
 
     expect(onRemoveChannel).toHaveBeenCalledWith("chan-1")
-    expect(screen.getByText("offline")).toBeInTheDocument()
+    expect(screen.queryByText(/live/i)).not.toBeInTheDocument()
   })
 })

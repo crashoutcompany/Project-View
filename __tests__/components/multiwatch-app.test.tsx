@@ -221,6 +221,46 @@ describe("MultiwatchApp", () => {
     })
   })
 
+  it("lists live channels first in the sidebar but keeps the grid order", () => {
+    const offline = makeChannel({ channelId: "chan-off", title: "Offline One" })
+    const liveSmall = makeChannel({
+      channelId: "chan-live-small",
+      title: "Live Small",
+      live: { status: "live", checkedAt: "x", videoId: "v1", viewerCount: 5 },
+    })
+    const liveBig = makeChannel({
+      channelId: "chan-live-big",
+      title: "Live Big",
+      live: { status: "live", checkedAt: "x", videoId: "v2", viewerCount: 900 },
+    })
+    const unknown = makeChannel({
+      channelId: "chan-unknown",
+      title: "Unknown One",
+      live: { status: "unknown", checkedAt: "x" },
+    })
+
+    renderApp({
+      initialSeedResults: [unknown, offline, liveSmall, liveBig],
+      initialSelectedChannels: [offline, liveSmall, liveBig],
+    })
+
+    const titlesIn = (name: string) =>
+      within(screen.getByRole("region", { name }))
+        .getAllByText(/One|Live/)
+        .map((element) => element.textContent)
+
+    expect(titlesIn("Selected")).toEqual(["Live Big", "Live Small", "Offline One"])
+    expect(titlesIn("Suggestions")).toEqual([
+      "Live Big",
+      "Live Small",
+      "Unknown One",
+      "Offline One",
+    ])
+    expect(screen.getByTestId("live-grid")).toHaveTextContent(
+      '"channelIds":["chan-off","chan-live-small","chan-live-big"]'
+    )
+  })
+
   it("does not search when the project is unconfigured", () => {
     vi.useFakeTimers()
     renderApp({

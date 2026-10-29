@@ -33,6 +33,7 @@ describe("ChannelCombobox", () => {
         query="alpha"
         results={[makeChannel()]}
         loading
+        now={0}
         onQueryChange={onQueryChange}
         onAddChannel={() => {}}
       />
@@ -60,6 +61,7 @@ describe("ChannelCombobox", () => {
         query=""
         results={[channel]}
         loading={false}
+        now={0}
         onQueryChange={() => {}}
         onAddChannel={onAddChannel}
       />
@@ -72,11 +74,40 @@ describe("ChannelCombobox", () => {
     )
 
     expect(screen.getByText("Channel One")).toBeInTheDocument()
-    expect(screen.getByText("live")).toBeInTheDocument()
+    expect(screen.getByText("Live")).toBeInTheDocument()
 
     fireEvent.click(screen.getByText("Channel One"))
 
     expect(onAddChannel).toHaveBeenCalledWith(channel)
+  })
+
+  it("hides the live badge for offline and unknown channels", () => {
+    render(
+      <ChannelCombobox
+        query=""
+        results={[
+          makeChannel({ live: { status: "offline", checkedAt: "x" } }),
+          makeChannel({
+            channelId: "chan-2",
+            title: "Channel Two",
+            live: { status: "unknown", checkedAt: "x" },
+          }),
+        ]}
+        loading={false}
+        now={0}
+        onQueryChange={() => {}}
+        onAddChannel={() => {}}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /search channels, handles, or live creators/i,
+      })
+    )
+
+    expect(screen.getByText("Channel Two")).toBeInTheDocument()
+    expect(screen.queryByText("Live")).not.toBeInTheDocument()
   })
 
   it("disables the search input when requested", () => {
@@ -85,6 +116,7 @@ describe("ChannelCombobox", () => {
         query=""
         results={[]}
         loading={false}
+        now={0}
         disabled
         onQueryChange={() => {}}
         onAddChannel={() => {}}

@@ -19,6 +19,7 @@ import { ChannelResults } from "@/components/channel-results";
 import { LiveGrid } from "@/components/live-grid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { sortLiveFirst } from "@/lib/live";
 import { ChannelResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +96,15 @@ export function MultiwatchApp({
   const [sidebarOpen, setSidebarOpen] = React.useState(
     initialSelectedChannels.length === 0,
   );
+  // Starts from the server timestamp so uptime text hydrates without a
+  // mismatch, then ticks once a minute.
+  const [now, setNow] = React.useState(() => Date.parse(initialUpdatedAt));
   const searchTimeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   function replaceUrl(
     nextQuery: string,
@@ -210,7 +219,11 @@ export function MultiwatchApp({
   const liveCount = selectedChannels.filter(
     (channel) => channel.live.status === "live",
   ).length;
-  const displayedResults = query.trim() ? results : seedResults;
+  // Display order only: the grid and URL keep the order channels were added,
+  // so iframes don't remount when a channel goes live.
+  const displayedResults = sortLiveFirst(query.trim() ? results : seedResults);
+  const sortedSelectedChannels = sortLiveFirst(selectedChannels);
+  const selectedIds = selectedChannels.map((channel) => channel.channelId);
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-[#050507] text-foreground">
@@ -295,6 +308,7 @@ export function MultiwatchApp({
                 query={query}
                 results={displayedResults}
                 loading={isPending}
+                now={now}
                 disabled={!configured}
                 onQueryChange={handleQueryChange}
                 onAddChannel={handleAddChannel}
@@ -307,11 +321,10 @@ export function MultiwatchApp({
               <ChannelResults
                 title="Selected"
                 description="Streams on the wall."
-                channels={selectedChannels}
-                selectedIds={selectedChannels.map(
-                  (channel) => channel.channelId,
-                )}
+                channels={sortedSelectedChannels}
+                selectedIds={selectedIds}
                 emptyMessage="Add channels to start."
+                now={now}
                 onAddChannel={handleAddChannel}
                 onRemoveChannel={handleRemoveChannel}
               />
@@ -322,10 +335,9 @@ export function MultiwatchApp({
                   query.trim() ? "Matched channels." : "From recent searches."
                 }
                 channels={displayedResults}
-                selectedIds={selectedChannels.map(
-                  (channel) => channel.channelId,
-                )}
+                selectedIds={selectedIds}
                 emptyMessage="Search to find channels."
+                now={now}
                 onAddChannel={handleAddChannel}
                 onRemoveChannel={handleRemoveChannel}
               />

@@ -13,7 +13,9 @@ export type LiveStatus = {
   videoId?: string
   title?: string
   thumbnailUrl?: string
+  // Optional because not every provider reports them on the live check.
   startedAt?: string
+  viewerCount?: number
 }
 
 export type ChannelResult = BaseChannel & {

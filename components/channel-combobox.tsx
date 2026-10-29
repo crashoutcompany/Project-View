@@ -2,7 +2,7 @@
 
 import { ChevronsUpDown, LoaderCircle, SearchIcon, TvMinimalPlay } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import { LiveBadge } from "@/components/live-badge"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -19,6 +19,7 @@ type ChannelComboboxProps = {
   query: string
   results: ChannelResult[]
   loading: boolean
+  now: number
   disabled?: boolean
   onQueryChange: (value: string) => void
   onAddChannel: (channel: ChannelResult) => void
@@ -28,6 +29,7 @@ export function ChannelCombobox({
   query,
   results,
   loading,
+  now,
   disabled = false,
   onQueryChange,
   onAddChannel,
@@ -94,12 +96,7 @@ export function ChannelCombobox({
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{channel.title}</span>
-                      <Badge
-                        variant={channel.live.status === "live" ? "default" : "secondary"}
-                        className="shrink-0 uppercase"
-                      >
-                        {channel.live.status}
-                      </Badge>
+                      <LiveBadge live={channel.live} now={now} />
                     </div>
                     <p className="line-clamp-2 text-xs text-muted-foreground">
                       {channel.description || "No channel description available."}
