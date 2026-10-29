@@ -83,7 +83,6 @@ function streamsFor(ids: string[], liveIds: string[] = []) {
             checkedAt: "now",
             title: "Stream",
             startedAt: "2026-10-29T20:00:00.000Z",
-            viewerCount: 4321,
           }
         : { status: "offline", checkedAt: "now" },
     ])
@@ -131,7 +130,7 @@ describe("search service with Twitch", () => {
     expect(selected[0]).toMatchObject({
       platform: "twitch",
       login: "user1",
-      live: { status: "live", viewerCount: 4321, startedAt: "2026-10-29T20:00:00.000Z" },
+      live: { status: "live", startedAt: "2026-10-29T20:00:00.000Z" },
     })
 
     // Same live/offline TTLs as YouTube.
@@ -166,7 +165,7 @@ describe("search service with Twitch", () => {
     const redis = {
       get: vi.fn(async (key: string) => {
         if (key === "tw:channel:v1:1") return twitchChannel("1")
-        if (key === "tw:live:v1:1") return { status: "live", checkedAt: "x", viewerCount: 7 }
+        if (key === "tw:live:v1:1") return { status: "live", checkedAt: "x", startedAt: "cached-start" }
         return null
       }),
       set: vi.fn().mockResolvedValue("OK"),
@@ -175,7 +174,7 @@ describe("search service with Twitch", () => {
 
     const [channel] = await service.getSelectedChannels(["tw:1"])
 
-    expect(channel?.live.viewerCount).toBe(7)
+    expect(channel?.live.startedAt).toBe("cached-start")
     expect(mockGetUsersByIds).not.toHaveBeenCalled()
     expect(mockGetStreamsByUserIds).not.toHaveBeenCalled()
   })

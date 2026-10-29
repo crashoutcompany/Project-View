@@ -70,7 +70,7 @@ describe("ChannelResults", () => {
     expect(onAddChannel).toHaveBeenCalledWith(channel)
   })
 
-  it("shows viewer count and uptime on live channels", () => {
+  it("shows LIVE and uptime on live channels", () => {
     render(
       <ChannelResults
         title="Results"
@@ -82,7 +82,6 @@ describe("ChannelResults", () => {
               checkedAt: "x",
               videoId: "video-1",
               startedAt: "2026-03-06T00:00:00.000Z",
-              viewerCount: 1500,
             },
           }),
         ]}
@@ -94,11 +93,10 @@ describe("ChannelResults", () => {
       />
     )
 
-    expect(screen.getByTitle("1500 watching")).toHaveTextContent("1.5K watching")
     expect(screen.getByText("live 1h 5m")).toBeInTheDocument()
   })
 
-  it("badges Twitch rows and shows LIVE, viewers and uptime from Helix", () => {
+  it("badges Twitch rows and shows only LIVE and uptime, like YouTube", () => {
     render(
       <ChannelResults
         title="Results"
@@ -114,7 +112,6 @@ describe("ChannelResults", () => {
               status: "live",
               checkedAt: "x",
               startedAt: "2026-03-06T00:00:00.000Z",
-              viewerCount: 23400,
             },
           }),
         ]}
@@ -129,7 +126,7 @@ describe("ChannelResults", () => {
     const twitchRow = screen.getByText("Crash Twitch").closest("li")!
     expect(within(twitchRow).getByTitle("Twitch")).toBeInTheDocument()
     expect(within(twitchRow).getByText("Live")).toBeInTheDocument()
-    expect(within(twitchRow).getByTitle("23400 watching")).toHaveTextContent("23.4K watching")
+    expect(within(twitchRow).queryByText(/watching/)).not.toBeInTheDocument()
     expect(within(twitchRow).getByText("live 2h 30m")).toBeInTheDocument()
     expect(screen.getByTitle("YouTube")).toBeInTheDocument()
   })

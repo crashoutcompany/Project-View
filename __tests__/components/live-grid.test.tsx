@@ -79,7 +79,7 @@ describe("LiveTile", () => {
           platform: "twitch",
           channelId: "tw:123",
           login: "crashout",
-          live: { status: "live", checkedAt: "2026-03-06T00:00:00.000Z", viewerCount: 900 },
+          live: { status: "live", checkedAt: "2026-03-06T00:00:00.000Z" },
         })}
         activeAudio={false}
         twitchParents={["localhost", "project-view.vercel.app"]}

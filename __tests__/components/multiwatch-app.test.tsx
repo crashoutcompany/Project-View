@@ -273,12 +273,12 @@ describe("MultiwatchApp", () => {
     const liveSmall = makeChannel({
       channelId: "chan-live-small",
       title: "Live Small",
-      live: { status: "live", checkedAt: "x", videoId: "v1", viewerCount: 5 },
+      live: { status: "live", checkedAt: "x", videoId: "v1" },
     })
     const liveBig = makeChannel({
       channelId: "chan-live-big",
       title: "Live Big",
-      live: { status: "live", checkedAt: "x", videoId: "v2", viewerCount: 900 },
+      live: { status: "live", checkedAt: "x", videoId: "v2" },
     })
     const unknown = makeChannel({
       channelId: "chan-unknown",
@@ -296,7 +296,7 @@ describe("MultiwatchApp", () => {
         .getAllByText(/One|Live/)
         .map((element) => element.textContent)
 
-    expect(titlesIn("Selected")).toEqual(["Live Big", "Live Small", "Offline One"])
+    expect(titlesIn("Selected")).toEqual(["Live Small", "Live Big", "Offline One"])
     expect(titlesIn("Suggestions")).toEqual(["Unknown One"])
     expect(screen.getByTestId("live-grid")).toHaveTextContent(
       '"channelIds":["chan-off","chan-live-small","chan-live-big"]'
@@ -314,12 +314,12 @@ describe("MultiwatchApp", () => {
     const liveSmall = makeChannel({
       channelId: "chan-live-small",
       title: "Live Small",
-      live: { status: "live", checkedAt: "x", videoId: "v1", viewerCount: 5 },
+      live: { status: "live", checkedAt: "x", videoId: "v1" },
     })
     const liveBig = makeChannel({
       channelId: "chan-live-big",
       title: "Live Big",
-      live: { status: "live", checkedAt: "x", videoId: "v2", viewerCount: 900 },
+      live: { status: "live", checkedAt: "x", videoId: "v2" },
     })
     mockSearchChannelsAction.mockResolvedValueOnce({
       query: "alpha",

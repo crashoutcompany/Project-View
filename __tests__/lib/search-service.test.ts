@@ -116,7 +116,6 @@ describe("search service", () => {
             checkedAt: "now",
             videoId: "video-1",
             startedAt: "2026-03-05T23:00:00.000Z",
-            viewerCount: 1200,
           }
         : { status: "offline", checkedAt: "now" }
     )
@@ -134,11 +133,10 @@ describe("search service", () => {
     expect(selected[0]?.live).toMatchObject({
       status: "live",
       startedAt: "2026-03-05T23:00:00.000Z",
-      viewerCount: 1200,
     })
   })
 
-  it("serves cached live state, including viewer count, without calling YouTube", async () => {
+  it("serves cached live state, including uptime, without calling YouTube", async () => {
     const redis = createRedisMock()
     mockGetRedis.mockReturnValue(redis)
     redis.get.mockImplementation(async (key: string) => {
@@ -146,14 +144,14 @@ describe("search service", () => {
         return { platform: "youtube", channelId: "chan-1", title: "One", description: "", thumbnailUrl: "" }
       }
       if (key === liveCacheKey("chan-1")) {
-        return { status: "live", checkedAt: "x", videoId: "v", viewerCount: 42 }
+        return { status: "live", checkedAt: "x", videoId: "v", startedAt: "cached-start" }
       }
       return null
     })
 
     const selected = await getSelectedChannels(["chan-1"])
 
-    expect(selected[0]?.live.viewerCount).toBe(42)
+    expect(selected[0]?.live.startedAt).toBe("cached-start")
     expect(mockGetChannelsByIds).not.toHaveBeenCalled()
     expect(mockGetLiveVideoForChannel).not.toHaveBeenCalled()
   })

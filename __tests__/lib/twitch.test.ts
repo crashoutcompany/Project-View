@@ -119,7 +119,6 @@ describe("twitch client", () => {
             user_id: "1",
             type: "live",
             title: "  Speedrun  ",
-            viewer_count: 12345,
             started_at: "2026-10-29T20:00:00Z",
             thumbnail_url: "https://static-cdn.jtvnw.net/previews-ttv/live_user_a-{width}x{height}.jpg",
           },
@@ -134,10 +133,10 @@ describe("twitch client", () => {
     expect(statuses.get("1")).toMatchObject({
       status: "live",
       title: "Speedrun",
-      viewerCount: 12345,
       startedAt: "2026-10-29T20:00:00Z",
       thumbnailUrl: "https://static-cdn.jtvnw.net/previews-ttv/live_user_a-640x360.jpg",
     })
+    expect(statuses.get("1")).not.toHaveProperty("viewerCount")
     expect(statuses.get("1")?.videoId).toBeUndefined()
     expect(statuses.get("2")).toMatchObject({ status: "offline" })
   })

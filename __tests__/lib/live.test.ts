@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import {
   compareLiveFirst,
   formatUptime,
-  formatViewerCount,
   sortLiveFirst,
 } from "@/lib/live"
 import type { LiveStatus } from "@/lib/types"
@@ -16,19 +15,17 @@ function channel(id: string, live: Partial<LiveStatus> = {}) {
 }
 
 describe("sortLiveFirst", () => {
-  it("puts live channels first, ordered by viewer count", () => {
+  it("puts live channels first", () => {
     const sorted = sortLiveFirst([
       channel("offline-1"),
-      channel("live-small", { status: "live", viewerCount: 10 }),
+      channel("live-1", { status: "live" }),
       channel("unknown-1", { status: "unknown" }),
-      channel("live-big", { status: "live", viewerCount: 5000 }),
-      channel("live-no-count", { status: "live" }),
+      channel("live-2", { status: "live", startedAt: "2026-03-06T00:00:00.000Z" }),
     ])
 
     expect(sorted.map((item) => item.channelId)).toEqual([
-      "live-big",
-      "live-small",
-      "live-no-count",
+      "live-1",
+      "live-2",
       "offline-1",
       "unknown-1",
     ])
@@ -60,28 +57,13 @@ describe("sortLiveFirst", () => {
     expect(input.map((item) => item.channelId)).toEqual(["offline-1", "live-1"])
   })
 
-  it("ignores viewer counts on channels that are not live", () => {
+  it("ranks offline and unknown channels equally", () => {
     expect(
       compareLiveFirst(
-        { status: "offline", checkedAt: "x", viewerCount: 900 },
+        { status: "offline", checkedAt: "x" },
         { status: "unknown", checkedAt: "x" }
       )
     ).toBe(0)
-  })
-})
-
-describe("formatViewerCount", () => {
-  it("formats counts compactly", () => {
-    expect(formatViewerCount(0)).toBe("0")
-    expect(formatViewerCount(950)).toBe("950")
-    expect(formatViewerCount(1234)).toBe("1.2K")
-    expect(formatViewerCount(2_500_000)).toBe("2.5M")
-  })
-
-  it("returns null when the count is missing or invalid", () => {
-    expect(formatViewerCount(undefined)).toBeNull()
-    expect(formatViewerCount(-1)).toBeNull()
-    expect(formatViewerCount(Number.NaN)).toBeNull()
   })
 })
 

@@ -43,7 +43,6 @@ type StreamsResponse = {
     user_id?: string;
     type?: string;
     title?: string;
-    viewer_count?: number;
     started_at?: string;
     thumbnail_url?: string;
   }>;
@@ -264,7 +263,6 @@ export async function getStreamsByUserIds(
         .replace("{width}", STREAM_THUMBNAIL_SIZE.width)
         .replace("{height}", STREAM_THUMBNAIL_SIZE.height),
       startedAt: stream.started_at,
-      viewerCount: stream.viewer_count,
     });
   }
 
