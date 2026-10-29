@@ -97,6 +97,51 @@ describe("ChannelResults", () => {
     expect(screen.getByText("live 1h 5m")).toBeInTheDocument()
   })
 
+  it("uses one Add style for live and offline rows, stretched over the whole row", () => {
+    render(
+      <ChannelResults
+        title="Results"
+        description="Search results"
+        channels={[
+          makeChannel(),
+          makeChannel({
+            channelId: "chan-2",
+            title: "Channel Two",
+            live: { status: "offline", checkedAt: "x" },
+          }),
+        ]}
+        selectedIds={[]}
+        emptyMessage="Nothing here"
+        now={0}
+        onAddChannel={() => {}}
+        onRemoveChannel={() => {}}
+      />
+    )
+
+    const liveAdd = screen.getByRole("button", { name: "Add Channel One" })
+    const offlineAdd = screen.getByRole("button", { name: "Add Channel Two" })
+
+    expect(liveAdd.className).toBe(offlineAdd.className)
+    expect(liveAdd).toHaveClass("after:inset-0")
+  })
+
+  it("falls back to initials when a channel has no thumbnail", () => {
+    render(
+      <ChannelResults
+        title="Results"
+        description="Search results"
+        channels={[makeChannel({ thumbnailUrl: "" })]}
+        selectedIds={[]}
+        emptyMessage="Nothing here"
+        now={0}
+        onAddChannel={() => {}}
+        onRemoveChannel={() => {}}
+      />
+    )
+
+    expect(screen.getByText("CO")).toBeInTheDocument()
+  })
+
   it("renders a remove action for selected channels", () => {
     const onRemoveChannel = vi.fn()
 

@@ -1,11 +1,10 @@
 import { Plus, Trash2 } from "lucide-react";
 
+import { ChannelAvatar } from "@/components/channel-avatar";
 import { LiveBadge } from "@/components/live-badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -24,14 +23,6 @@ type ChannelResultsProps = {
   onRemoveChannel: (channelId: string) => void;
 };
 
-function initials(label: string) {
-  return label
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 export function ChannelResults({
   title,
   description,
@@ -48,67 +39,66 @@ export function ChannelResults({
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3 pt-4">
+      <CardContent className="pt-3">
         {channels.length === 0 ? (
           <div className="border border-dashed border-border px-4 py-6 text-xs text-muted-foreground">
             {emptyMessage}
           </div>
         ) : null}
-        {channels.map((channel) => {
-          const isSelected = selectedIds.includes(channel.channelId);
-          const isLive = channel.live.status === "live";
+        <ul className="-mx-2 space-y-0.5">
+          {channels.map((channel) => {
+            const isSelected = selectedIds.includes(channel.channelId);
 
-          return (
-            <Card
-              key={channel.channelId}
-              size="sm"
-              className="border border-border/70 bg-background/70"
-            >
-              <CardHeader>
-                <div
-                  className="flex min-w-0 items-start gap-3"
-                  title={`${channel.title}\n${channel.description || "No description available."}`}
-                >
-                  <Avatar size="lg" className="shrink-0">
-                    <AvatarImage
-                      src={channel.thumbnailUrl}
-                      alt={channel.title}
-                    />
-                    <AvatarFallback>{initials(channel.title)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <CardTitle className="truncate">{channel.title}</CardTitle>
-                    <LiveBadge live={channel.live} now={now} className="mt-1" />
-                    <CardDescription className="mt-1 truncate">
-                      {channel.description || "No description available."}
-                    </CardDescription>
+            return (
+              <li
+                key={channel.channelId}
+                title={`${channel.title}\n${channel.description || "No description available."}`}
+                // No layout transition: live re-sorts should jump, not animate.
+                className="group/row relative flex min-h-14 items-center gap-3 px-2 py-2 transition-[background-color,scale] duration-[120ms] ease-out hover:bg-muted/60 has-[[data-row-add]:active]:scale-[0.97] pointer-coarse:min-h-16"
+              >
+                <ChannelAvatar
+                  title={channel.title}
+                  thumbnailUrl={channel.thumbnailUrl}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {channel.title}
                   </div>
+                  <LiveBadge live={channel.live} now={now} className="mt-1" />
+                  <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                    {channel.description || "No description available."}
+                  </p>
                 </div>
-                <CardAction className="flex items-center gap-2">
-                  {isSelected ? (
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onRemoveChannel(channel.channelId)}
-                      aria-label={`Remove ${channel.title}`}
-                    >
-                      <Trash2 />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant={isLive ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => onAddChannel(channel)}
-                    >
-                      <Plus />
-                      Add
-                    </Button>
-                  )}
-                </CardAction>
-              </CardHeader>
-            </Card>
-          );
-        })}
+                {isSelected ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => onRemoveChannel(channel.channelId)}
+                    aria-label={`Remove ${channel.title}`}
+                    // Always visible on touch; hover-revealed for mouse users.
+                    // Opacity (not display) keeps the description's space reserved.
+                    className="relative shrink-0 transition-[opacity,scale,background-color] duration-[120ms] ease-out active:scale-[0.97] pointer-coarse:size-11 pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100 pointer-fine:group-focus-within/row:opacity-100"
+                  >
+                    <Trash2 />
+                  </Button>
+                ) : (
+                  <Button
+                    data-row-add
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onAddChannel(channel)}
+                    aria-label={`Add ${channel.title}`}
+                    // Stretched over the row so the whole row adds the channel.
+                    className="shrink-0 bg-transparent after:absolute after:inset-0 after:content-[''] pointer-coarse:h-11"
+                  >
+                    <Plus />
+                    Add
+                  </Button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </CardContent>
     </Card>
   );

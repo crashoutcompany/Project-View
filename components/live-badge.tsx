@@ -23,16 +23,16 @@ export function LiveBadge({ live, now, className }: LiveBadgeProps) {
     <span
       data-slot="live-badge"
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 text-[10px] font-medium whitespace-nowrap text-muted-foreground",
+        "inline-flex shrink-0 items-center gap-1.5 text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums",
         className,
       )}
     >
-      <span className="inline-flex h-5 items-center gap-1 rounded-full bg-red-600 px-2 font-semibold tracking-wider text-white uppercase">
-        <span aria-hidden className="size-1.5 rounded-full bg-white" />
+      <span className="inline-flex h-[18px] items-center gap-1 rounded-full bg-red-600/85 px-1.5 text-[9px] leading-none font-bold tracking-wide text-white uppercase">
+        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />
         Live
       </span>
       {viewers ? (
-        <span className="inline-flex items-center gap-0.5" title={`${live.viewerCount} watching`}>
+        <span className="inline-flex items-center gap-1" title={`${live.viewerCount} watching`}>
           <Eye aria-hidden className="size-3" />
           {viewers}
           <span className="sr-only"> watching</span>

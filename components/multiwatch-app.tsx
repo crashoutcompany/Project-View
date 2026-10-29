@@ -236,6 +236,7 @@ export function MultiwatchApp({
         <Button
           variant="ghost"
           size="icon-sm"
+          className="pointer-coarse:size-11"
           onClick={() => setSidebarOpen((open) => !open)}
           aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
         >
@@ -254,7 +255,7 @@ export function MultiwatchApp({
         <div className="flex-1" />
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
             <RadioTower className="size-3.5 text-primary" />
             <span>
               <span className="font-medium text-foreground">{liveCount}</span>{" "}
@@ -275,6 +276,7 @@ export function MultiwatchApp({
             onClick={handleManualRefresh}
             disabled={!configured || selectedChannels.length === 0 || isPending}
             aria-label="Refresh live state"
+            className="pointer-coarse:size-11"
           >
             <RefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
@@ -299,7 +301,7 @@ export function MultiwatchApp({
               variant="ghost"
               size="icon-sm"
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden"
+              className="lg:hidden pointer-coarse:size-11"
               aria-label="Close sidebar"
             >
               <X className="size-3.5" />

@@ -1,7 +1,8 @@
 "use client"
 
-import { ChevronsUpDown, LoaderCircle, SearchIcon, TvMinimalPlay } from "lucide-react"
+import { ChevronsUpDown, LoaderCircle, Plus } from "lucide-react"
 
+import { ChannelAvatar } from "@/components/channel-avatar"
 import { LiveBadge } from "@/components/live-badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -79,30 +80,19 @@ export function ChannelCombobox({
                   key={channel.channelId}
                   value={`${channel.title} ${channel.channelId}`}
                   onSelect={() => onAddChannel(channel)}
-                  className="items-start gap-3 px-3 py-3"
+                  className="min-h-14 items-center gap-3 px-3 py-2 transition-[background-color,scale] duration-[120ms] ease-out active:scale-[0.97]"
                 >
-                  <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center border border-border bg-muted/40">
-                    {channel.thumbnailUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={channel.thumbnailUrl}
-                        alt={channel.title}
-                        className="size-full object-cover"
-                      />
-                    ) : (
-                      <TvMinimalPlay className="size-4 text-muted-foreground" />
-                    )}
-                  </div>
+                  <ChannelAvatar title={channel.title} thumbnailUrl={channel.thumbnailUrl} />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{channel.title}</span>
                       <LiveBadge live={channel.live} now={now} />
                     </div>
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                    <p className="line-clamp-1 text-xs text-muted-foreground">
                       {channel.description || "No channel description available."}
                     </p>
                   </div>
-                  <SearchIcon className="mt-1 size-4 shrink-0 text-muted-foreground" />
+                  <Plus aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                 </CommandItem>
               ))}
             </CommandGroup>
