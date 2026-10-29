@@ -1,5 +1,4 @@
-import { CircleOff } from "lucide-react";
-
+import { ChannelAvatar } from "@/components/channel-avatar";
 import { ChannelResult } from "@/lib/types";
 
 type LiveTileProps = {
@@ -26,10 +25,23 @@ export function LiveTile({ channel, activeAudio }: LiveTileProps) {
             allowFullScreen
           />
         ) : (
-          <div className="flex size-full items-center justify-center bg-[#0a0a0f]">
-            <div className="space-y-2 text-center text-xs text-muted-foreground">
-              <CircleOff className="mx-auto size-5 opacity-40" />
-              <p>{channel.title} is offline</p>
+          // The tile is always dark, so text uses fixed light tones, not theme colors.
+          <div className="flex size-full items-center justify-center bg-[#0a0a0f] p-4">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <ChannelAvatar
+                title={channel.title}
+                thumbnailUrl={channel.thumbnailUrl}
+                size="default"
+                className="size-14 opacity-80"
+              />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white/85">
+                  {channel.title}
+                </p>
+                <p className="text-xs font-medium tracking-wide text-white/50 uppercase">
+                  {channel.live.status === "unknown" ? "Status unknown" : "Offline"}
+                </p>
+              </div>
             </div>
           </div>
         )}

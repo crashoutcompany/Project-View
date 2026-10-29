@@ -43,7 +43,7 @@ describe("LiveGrid", () => {
     )
 
     expect(container.firstChild).toHaveClass("2xl:grid-cols-4")
-    expect(screen.getAllByText(/is offline$/)).toHaveLength(7)
+    expect(screen.getAllByText("Offline")).toHaveLength(7)
   })
 })
 
@@ -70,9 +70,26 @@ describe("LiveTile", () => {
     expect(iframe).toHaveAttribute("src", expect.stringContaining("mute=0"))
   })
 
-  it("renders the offline placeholder when there is no live video", () => {
-    render(<LiveTile channel={makeChannel()} activeAudio={false} />)
+  it("renders the offline placeholder with the channel name and initials", () => {
+    render(
+      <LiveTile channel={makeChannel({ thumbnailUrl: "" })} activeAudio={false} />
+    )
 
-    expect(screen.getByText("Channel One is offline")).toBeInTheDocument()
+    expect(screen.getByText("Channel One")).toBeInTheDocument()
+    expect(screen.getByText("Offline")).toBeInTheDocument()
+    expect(screen.getByText("CO")).toBeInTheDocument()
+    expect(screen.queryByTitle("Channel One live stream")).not.toBeInTheDocument()
+  })
+
+  it("labels an unknown live state instead of calling it offline", () => {
+    render(
+      <LiveTile
+        channel={makeChannel({ live: { status: "unknown", checkedAt: "x" } })}
+        activeAudio={false}
+      />
+    )
+
+    expect(screen.getByText("Status unknown")).toBeInTheDocument()
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument()
   })
 })

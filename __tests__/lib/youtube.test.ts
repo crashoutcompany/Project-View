@@ -183,6 +183,28 @@ describe("youtube helpers", () => {
     isoSpy.mockRestore()
   })
 
+  it("checks live state with a single search request and no videos lookup", async () => {
+    fetchMock.mockResolvedValueOnce(
+      createJsonResponse({
+        items: [
+          {
+            id: { videoId: "video-1" },
+            snippet: { title: "Live", publishedAt: "2026-03-05T23:00:00.000Z" },
+          },
+        ],
+      })
+    )
+
+    const live = await getLiveVideoForChannel("chan-1")
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(fetchMock.mock.calls[0][0] as string)
+    expect(url.pathname).toBe("/youtube/v3/search")
+    expect(url.searchParams.get("eventType")).toBe("live")
+    expect(live.startedAt).toBe("2026-03-05T23:00:00.000Z")
+    expect(live.viewerCount).toBeUndefined()
+  })
+
   it("throws when the YouTube API returns a non-ok response", async () => {
     fetchMock.mockResolvedValueOnce(createJsonResponse({}, false, 403))
 

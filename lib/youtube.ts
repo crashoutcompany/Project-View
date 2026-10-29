@@ -164,6 +164,9 @@ export async function getChannelsByIds(channelIds: string[]) {
     .filter((channel): channel is BaseChannel => Boolean(channel));
 }
 
+// One search.list call per channel. viewerCount is left unset on purpose:
+// it needs a separate videos.list (liveStreamingDetails) call, and the live
+// check must not cost extra quota. startedAt comes from the same response.
 export async function getLiveVideoForChannel(
   channelId: string,
 ): Promise<LiveStatus> {

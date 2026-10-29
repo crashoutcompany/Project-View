@@ -89,6 +89,65 @@ describe("search service", () => {
     mockGetRedis.mockReset()
   })
 
+  it("makes no YouTube calls beyond one live check per channel on a page load", async () => {
+    mockGetRedis.mockReturnValue(null)
+    mockGetChannelsByIds.mockImplementation(async (channelIds: string[]) =>
+      channelIds.map((channelId) => ({
+        channelId,
+        title: channelId,
+        description: "",
+        thumbnailUrl: "",
+      }))
+    )
+    mockGetLiveVideoForChannel.mockImplementation(async (channelId: string) =>
+      channelId === "chan-1"
+        ? {
+            status: "live",
+            checkedAt: "now",
+            videoId: "video-1",
+            startedAt: "2026-03-05T23:00:00.000Z",
+            viewerCount: 1200,
+          }
+        : { status: "offline", checkedAt: "now" }
+    )
+
+    // Mirrors the page: seed, search and selected channels in one load.
+    const [, , selected] = await Promise.all([
+      getSeedResults(),
+      getSearchResults(""),
+      getSelectedChannels(["chan-1", "chan-2"]),
+    ])
+
+    expect(mockSearchChannels).not.toHaveBeenCalled()
+    expect(mockGetChannelsByIds).toHaveBeenCalledTimes(2)
+    expect(mockGetLiveVideoForChannel).toHaveBeenCalledTimes(2)
+    expect(selected[0]?.live).toMatchObject({
+      status: "live",
+      startedAt: "2026-03-05T23:00:00.000Z",
+      viewerCount: 1200,
+    })
+  })
+
+  it("serves cached live state, including viewer count, without calling YouTube", async () => {
+    const redis = createRedisMock()
+    mockGetRedis.mockReturnValue(redis)
+    redis.get.mockImplementation(async (key: string) => {
+      if (key === channelCacheKey("chan-1")) {
+        return { channelId: "chan-1", title: "One", description: "", thumbnailUrl: "" }
+      }
+      if (key === liveCacheKey("chan-1")) {
+        return { status: "live", checkedAt: "x", videoId: "v", viewerCount: 42 }
+      }
+      return null
+    })
+
+    const selected = await getSelectedChannels(["chan-1"])
+
+    expect(selected[0]?.live.viewerCount).toBe(42)
+    expect(mockGetChannelsByIds).not.toHaveBeenCalled()
+    expect(mockGetLiveVideoForChannel).not.toHaveBeenCalled()
+  })
+
   it("reports whether the project is configured", () => {
     mockYoutubeConfigured.mockReturnValueOnce(false)
 
