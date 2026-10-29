@@ -224,6 +224,10 @@ export function MultiwatchApp({
   const displayedResults = sortLiveFirst(query.trim() ? results : seedResults);
   const sortedSelectedChannels = sortLiveFirst(selectedChannels);
   const selectedIds = selectedChannels.map((channel) => channel.channelId);
+  // Selected channels already have their own list above.
+  const unselectedResults = displayedResults.filter(
+    (channel) => !selectedIds.includes(channel.channelId),
+  );
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-[#050507] text-foreground">
@@ -334,7 +338,7 @@ export function MultiwatchApp({
                 description={
                   query.trim() ? "Matched channels." : "From recent searches."
                 }
-                channels={displayedResults}
+                channels={unselectedResults}
                 selectedIds={selectedIds}
                 emptyMessage="Search to find channels."
                 now={now}

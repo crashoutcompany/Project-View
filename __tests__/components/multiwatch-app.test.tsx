@@ -250,15 +250,60 @@ describe("MultiwatchApp", () => {
         .map((element) => element.textContent)
 
     expect(titlesIn("Selected")).toEqual(["Live Big", "Live Small", "Offline One"])
-    expect(titlesIn("Suggestions")).toEqual([
-      "Live Big",
-      "Live Small",
-      "Unknown One",
-      "Offline One",
-    ])
+    expect(titlesIn("Suggestions")).toEqual(["Unknown One"])
     expect(screen.getByTestId("live-grid")).toHaveTextContent(
       '"channelIds":["chan-off","chan-live-small","chan-live-big"]'
     )
+  })
+
+  it("leaves selected channels out of suggestions and results, keeping live first", async () => {
+    vi.useFakeTimers()
+    const offline = makeChannel({ channelId: "chan-off", title: "Offline One" })
+    const unknown = makeChannel({
+      channelId: "chan-unknown",
+      title: "Unknown One",
+      live: { status: "unknown", checkedAt: "x" },
+    })
+    const liveSmall = makeChannel({
+      channelId: "chan-live-small",
+      title: "Live Small",
+      live: { status: "live", checkedAt: "x", videoId: "v1", viewerCount: 5 },
+    })
+    const liveBig = makeChannel({
+      channelId: "chan-live-big",
+      title: "Live Big",
+      live: { status: "live", checkedAt: "x", videoId: "v2", viewerCount: 900 },
+    })
+    mockSearchChannelsAction.mockResolvedValueOnce({
+      query: "alpha",
+      channels: [offline, liveSmall, unknown, liveBig],
+      cached: false,
+      source: "search",
+    })
+
+    renderApp({
+      initialSeedResults: [unknown, offline, liveSmall, liveBig],
+      initialSelectedChannels: [liveBig],
+    })
+
+    const titlesIn = (name: string) =>
+      within(screen.getByRole("region", { name }))
+        .getAllByText(/One|Live/)
+        .map((element) => element.textContent)
+
+    expect(titlesIn("Suggestions")).toEqual(["Live Small", "Unknown One", "Offline One"])
+
+    fireEvent.change(screen.getByLabelText("Query"), { target: { value: "alpha" } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    vi.useRealTimers()
+
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Results" })).toBeInTheDocument()
+    })
+    expect(titlesIn("Results")).toEqual(["Live Small", "Offline One", "Unknown One"])
+    expect(titlesIn("Selected")).toEqual(["Live Big"])
   })
 
   it("does not search when the project is unconfigured", () => {
