@@ -7,6 +7,8 @@ import {
   LIVE_CACHE_TTL_LIVE_SECONDS,
   LIVE_CACHE_TTL_OFFLINE_SECONDS,
   normalizeQuery,
+  parseChannelId,
+  platformOf,
   sanitizeChannelIds,
   SEARCH_CACHE_TTL_SECONDS,
   searchCacheKey,
@@ -15,8 +17,23 @@ import {
   SEEDED_CHANNEL_LIMIT,
   SEED_CACHE_TTL_SECONDS,
 } from "@/lib/cache-keys"
+import { createBatcher } from "@/lib/batcher"
 import { readCache, writeCache } from "@/lib/cache"
-import { BaseChannel, ChannelResult, LiveStatus, SearchPayload } from "@/lib/types"
+import {
+  getStreamsByUserIds,
+  getUsersByIds,
+  HELIX_MAX_IDS,
+  searchChannels as searchTwitchChannels,
+  twitchConfigured,
+} from "@/lib/twitch"
+import {
+  BaseChannel,
+  ChannelResult,
+  LiveStatus,
+  Platform,
+  PlatformFilter,
+  SearchPayload,
+} from "@/lib/types"
 import {
   getChannelsByIds,
   getLiveVideoForChannel,
@@ -25,6 +42,7 @@ import {
 } from "@/lib/youtube"
 
 let warnedYouTubeUnavailable = false
+let warnedTwitchUnavailable = false
 
 // YouTube errors (quota, bad key, outage, timeout) degrade the result instead
 // of failing the page or action. Fallbacks are never cached.
@@ -49,6 +67,58 @@ export function resetYouTubeStateForTests() {
   warnedYouTubeUnavailable = false
 }
 
+// Mirrors callYouTube: Twitch errors (bad credentials, outage, timeout) only
+// degrade Twitch results, never YouTube ones, and fallbacks are never cached.
+async function callTwitch<T>(call: () => Promise<T>) {
+  try {
+    const value = await call()
+    if (warnedTwitchUnavailable) {
+      warnedTwitchUnavailable = false
+      console.info("[twitch] Twitch API reachable again.")
+    }
+    return { ok: true as const, value }
+  } catch (error) {
+    if (!warnedTwitchUnavailable) {
+      warnedTwitchUnavailable = true
+      console.warn("[twitch] Twitch API call failed; serving degraded results.", error)
+    }
+    return { ok: false as const }
+  }
+}
+
+export function resetTwitchStateForTests() {
+  warnedTwitchUnavailable = false
+}
+
+// Every Twitch lookup on a page load or refresh shares one /users and one
+// /streams call (Helix takes up to 100 ids each).
+const twitchUsers = createBatcher(async (userIds) => {
+  const response = await callTwitch(() => getUsersByIds(userIds))
+  return response.ok ? response.value : null
+}, HELIX_MAX_IDS)
+
+const twitchStreams = createBatcher(async (userIds) => {
+  const response = await callTwitch(() => getStreamsByUserIds(userIds))
+  return response.ok ? response.value : null
+}, HELIX_MAX_IDS)
+
+function platformConfigured(platform: Platform) {
+  return platform === "twitch" ? twitchConfigured() : youtubeConfigured()
+}
+
+export function configuredPlatforms(): Platform[] {
+  return (["youtube", "twitch"] as const).filter(platformConfigured)
+}
+
+function twitchUserId(channelId: string) {
+  return parseChannelId(channelId)?.id ?? channelId
+}
+
+// Channels cached before Twitch support have no platform field.
+function withPlatform(channel: BaseChannel): BaseChannel {
+  return channel.platform ? channel : { ...channel, platform: platformOf(channel.channelId) }
+}
+
 function unknownLiveStatus(): LiveStatus {
   return { status: "unknown", checkedAt: new Date().toISOString() }
 }
@@ -56,7 +126,13 @@ function unknownLiveStatus(): LiveStatus {
 // Keeps a selected channel on screen (and in the URL) while its details
 // can't be fetched, rather than dropping it from the user's selection.
 function placeholderChannel(channelId: string): BaseChannel {
-  return { channelId, title: channelId, description: "", thumbnailUrl: "" }
+  return {
+    platform: platformOf(channelId),
+    channelId,
+    title: channelId,
+    description: "",
+    thumbnailUrl: "",
+  }
 }
 
 function dedupeChannels(channels: BaseChannel[]) {
@@ -74,15 +150,23 @@ async function cacheChannels(channels: BaseChannel[]) {
 async function getChannelById(channelId: string) {
   const cached = await readCache<BaseChannel>(channelCacheKey(channelId))
   if (cached) {
-    return cached
+    return withPlatform(cached)
   }
 
-  const response = await callYouTube(() => getChannelsByIds([channelId]))
+  const platform = platformOf(channelId)
+  if (!platformConfigured(platform)) {
+    return placeholderChannel(channelId)
+  }
+
+  const response =
+    platform === "twitch"
+      ? await twitchUsers.load(twitchUserId(channelId))
+      : await callYouTube(async () => (await getChannelsByIds([channelId]))[0])
   if (!response.ok) {
     return placeholderChannel(channelId)
   }
 
-  const channel = response.value[0] ?? null
+  const channel = response.value ?? null
 
   if (channel) {
     await writeCache(channelCacheKey(channelId), channel, CHANNEL_CACHE_TTL_SECONDS)
@@ -101,8 +185,16 @@ async function getLiveStatus(channelId: string) {
 }
 
 async function fetchLiveStatus(channelId: string) {
-  const response = await callYouTube(() => getLiveVideoForChannel(channelId))
-  if (!response.ok) {
+  const platform = platformOf(channelId)
+  if (!platformConfigured(platform)) {
+    return unknownLiveStatus()
+  }
+
+  const response =
+    platform === "twitch"
+      ? await twitchStreams.load(twitchUserId(channelId))
+      : await callYouTube(() => getLiveVideoForChannel(channelId))
+  if (!response.ok || !response.value) {
     return unknownLiveStatus()
   }
 
@@ -139,9 +231,10 @@ async function withLiveStatus(channels: BaseChannel[]) {
   return liveStates
 }
 
-// Redis is optional: without it every request goes straight to the YouTube API.
+// Redis is optional: without it every request goes straight to the provider
+// APIs. Either provider on its own is enough to use the app.
 export function projectConfigured() {
-  return youtubeConfigured()
+  return youtubeConfigured() || twitchConfigured()
 }
 
 export async function getSeedResults(): Promise<SearchPayload> {
@@ -154,7 +247,7 @@ export async function getSeedResults(): Promise<SearchPayload> {
     }
   }
 
-  const channels = (await readCache<BaseChannel[]>(seedCacheKey)) ?? []
+  const channels = ((await readCache<BaseChannel[]>(seedCacheKey)) ?? []).map(withPlatform)
   const merged = await withLiveStatus(channels)
 
   return {
@@ -165,7 +258,41 @@ export async function getSeedResults(): Promise<SearchPayload> {
   }
 }
 
-export async function getSearchResults(query: string): Promise<SearchPayload> {
+async function searchPlatform(platform: Platform, query: string) {
+  const key = searchCacheKey(query, platform)
+  const cached = await readCache<BaseChannel[]>(key)
+  if (cached) {
+    return { channels: cached.map(withPlatform), cached: true }
+  }
+
+  const response =
+    platform === "twitch"
+      ? await callTwitch(() => searchTwitchChannels(query, SEARCH_RESULT_LIMIT))
+      : await callYouTube(() => searchChannels(query, SEARCH_RESULT_LIMIT))
+  if (!response.ok) {
+    return null
+  }
+
+  const channels = response.value.slice(0, SEARCH_RESULT_LIMIT)
+
+  await writeCache(key, channels, SEARCH_CACHE_TTL_SECONDS)
+  await cacheChannels(channels)
+
+  return { channels, cached: false }
+}
+
+// Alternates platforms so a mixed search shows both, best matches first.
+function interleave(lists: BaseChannel[][]) {
+  const longest = Math.max(0, ...lists.map((list) => list.length))
+  return Array.from({ length: longest }, (_, index) =>
+    lists.flatMap((list) => (index < list.length ? [list[index]] : []))
+  ).flat()
+}
+
+export async function getSearchResults(
+  query: string,
+  platform: PlatformFilter = "all"
+): Promise<SearchPayload> {
   const normalizedQuery = normalizeQuery(query)
 
   if (!projectConfigured()) {
@@ -181,33 +308,29 @@ export async function getSearchResults(query: string): Promise<SearchPayload> {
     return getSeedResults()
   }
 
-  const cachedChannels = await readCache<BaseChannel[]>(searchCacheKey(normalizedQuery))
-  let channels = cachedChannels
+  const platforms = configuredPlatforms().filter(
+    (candidate) => platform === "all" || candidate === platform
+  )
+  const searches = (
+    await Promise.all(platforms.map((candidate) => searchPlatform(candidate, normalizedQuery)))
+  ).filter((search) => search !== null)
 
-  if (!channels) {
-    const response = await callYouTube(() =>
-      searchChannels(normalizedQuery, SEARCH_RESULT_LIMIT)
-    )
-    if (!response.ok) {
-      return { query: normalizedQuery, channels: [], cached: false, source: "search" }
-    }
-
-    channels = response.value.slice(0, SEARCH_RESULT_LIMIT)
-
-    await writeCache(
-      searchCacheKey(normalizedQuery),
-      channels,
-      SEARCH_CACHE_TTL_SECONDS
-    )
-    await cacheChannels(channels)
+  if (searches.length === 0) {
+    return { query: normalizedQuery, channels: [], cached: false, source: "search" }
   }
+
+  // The result limit is shared across platforms, not per platform.
+  const channels = interleave(searches.map((search) => search.channels)).slice(
+    0,
+    SEARCH_RESULT_LIMIT
+  )
 
   await updateSeedChannels(channels)
 
   return {
     query: normalizedQuery,
     channels: await withLiveStatus(channels),
-    cached: Boolean(cachedChannels),
+    cached: searches.every((search) => search.cached),
     source: "search",
   }
 }

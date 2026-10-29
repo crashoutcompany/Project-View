@@ -125,6 +125,7 @@ export async function searchChannels(query: string, maxResults = 5) {
       }
 
       return {
+        platform: "youtube",
         channelId,
         title,
         description: item.snippet?.description?.trim() ?? "",
@@ -155,6 +156,7 @@ export async function getChannelsByIds(channelIds: string[]) {
       }
 
       return {
+        platform: "youtube",
         channelId,
         title,
         description: item.snippet?.description?.trim() ?? "",

@@ -74,6 +74,7 @@ describe("youtube helpers", () => {
 
     await expect(searchChannels("Crash Out", 3)).resolves.toEqual([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Crash Out",
         description: "Streams and clips",
@@ -123,6 +124,7 @@ describe("youtube helpers", () => {
 
     await expect(getChannelsByIds(["chan-1", "chan-2"])).resolves.toEqual([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Channel One",
         description: "Ready to go",

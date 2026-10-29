@@ -11,6 +11,7 @@ import type { ChannelResult } from "@/lib/types"
 
 function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
   return {
+    platform: "youtube",
     channelId: "chan-1",
     title: "Channel One",
     description: "Description",
@@ -25,7 +26,7 @@ function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
 
 describe("LiveGrid", () => {
   it("renders the empty state when no channels are selected", () => {
-    render(<LiveGrid channels={[]} activeAudioChannelId={null} />)
+    render(<LiveGrid channels={[]} activeAudioChannelId={null} twitchParents={["localhost"]} />)
 
     expect(screen.getByText("No streams yet")).toBeInTheDocument()
   })
@@ -39,7 +40,7 @@ describe("LiveGrid", () => {
     )
 
     const { container } = render(
-      <LiveGrid channels={channels} activeAudioChannelId="chan-2" />
+      <LiveGrid channels={channels} activeAudioChannelId="chan-2" twitchParents={["localhost"]} />
     )
 
     expect(container.firstChild).toHaveClass("2xl:grid-cols-4")
@@ -59,6 +60,7 @@ describe("LiveTile", () => {
           },
         })}
         activeAudio
+        twitchParents={["localhost"]}
       />
     )
 
@@ -70,9 +72,47 @@ describe("LiveTile", () => {
     expect(iframe).toHaveAttribute("src", expect.stringContaining("mute=0"))
   })
 
+  it("embeds the Twitch player with every parent host and mutes inactive tiles", () => {
+    render(
+      <LiveTile
+        channel={makeChannel({
+          platform: "twitch",
+          channelId: "tw:123",
+          login: "crashout",
+          live: { status: "live", checkedAt: "2026-03-06T00:00:00.000Z", viewerCount: 900 },
+        })}
+        activeAudio={false}
+        twitchParents={["localhost", "project-view.vercel.app"]}
+      />
+    )
+
+    const src = new URL(screen.getByTitle("Channel One live stream").getAttribute("src") ?? "")
+    expect(src.origin).toBe("https://player.twitch.tv")
+    expect(src.searchParams.get("channel")).toBe("crashout")
+    expect(src.searchParams.getAll("parent")).toEqual(["localhost", "project-view.vercel.app"])
+    expect(src.searchParams.get("muted")).toBe("true")
+    expect(screen.getByText("Twitch")).toBeInTheDocument()
+  })
+
+  it("does not embed a live Twitch channel without a login", () => {
+    render(
+      <LiveTile
+        channel={makeChannel({
+          platform: "twitch",
+          channelId: "tw:123",
+          live: { status: "live", checkedAt: "2026-03-06T00:00:00.000Z" },
+        })}
+        activeAudio
+        twitchParents={["localhost"]}
+      />
+    )
+
+    expect(screen.queryByTitle("Channel One live stream")).not.toBeInTheDocument()
+  })
+
   it("renders the offline placeholder with the channel name and initials", () => {
     render(
-      <LiveTile channel={makeChannel({ thumbnailUrl: "" })} activeAudio={false} />
+      <LiveTile channel={makeChannel({ thumbnailUrl: "" })} activeAudio={false} twitchParents={["localhost"]} />
     )
 
     expect(screen.getByText("Channel One")).toBeInTheDocument()
@@ -86,6 +126,7 @@ describe("LiveTile", () => {
       <LiveTile
         channel={makeChannel({ live: { status: "unknown", checkedAt: "x" } })}
         activeAudio={false}
+        twitchParents={["localhost"]}
       />
     )
 

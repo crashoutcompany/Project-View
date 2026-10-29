@@ -11,6 +11,8 @@ const mockGetSearchResults = vi.fn<(query: string) => Promise<SearchPayload>>()
 const mockGetSeedResults = vi.fn<() => Promise<SearchPayload>>()
 const mockGetSelectedChannels = vi.fn<(channelIds: string[]) => Promise<ChannelResult[]>>()
 const mockProjectConfigured = vi.fn<() => boolean>()
+const mockConfiguredPlatforms = vi.fn<() => Array<"youtube" | "twitch">>()
+const mockHeaders = vi.fn<() => Promise<Headers>>()
 const mockMultiwatchApp = vi.fn<(props: Record<string, unknown>) => ReactElement>(
   () => <div data-testid="multiwatch-app" />
 )
@@ -20,6 +22,11 @@ vi.doMock("@/lib/search-service", () => ({
   getSeedResults: mockGetSeedResults,
   getSelectedChannels: mockGetSelectedChannels,
   projectConfigured: mockProjectConfigured,
+  configuredPlatforms: mockConfiguredPlatforms,
+}))
+
+vi.doMock("next/headers", () => ({
+  headers: mockHeaders,
 }))
 
 vi.doMock("@/components/multiwatch-app", () => ({
@@ -30,6 +37,7 @@ let PageContent: typeof import("@/app/page").PageContent
 
 function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
   return {
+    platform: "youtube",
     channelId: "chan-1",
     title: "Channel One",
     description: "",
@@ -53,19 +61,21 @@ describe("PageContent", () => {
     mockGetSelectedChannels.mockReset()
     mockProjectConfigured.mockReset()
     mockMultiwatchApp.mockClear()
+    mockConfiguredPlatforms.mockReturnValue(["youtube", "twitch"])
+    mockHeaders.mockResolvedValue(new Headers({ host: "localhost:3000" }))
   })
 
   it("loads configured data and passes normalized props to MultiwatchApp", async () => {
     mockProjectConfigured.mockReturnValue(true)
     mockGetSeedResults.mockResolvedValue({
       query: "",
-      channels: [makeChannel({ channelId: "seed-1", title: "Seed One" })],
+      channels: [makeChannel({ platform: "youtube", channelId: "seed-1", title: "Seed One" })],
       cached: true,
       source: "seed",
     })
     mockGetSearchResults.mockResolvedValue({
       query: "alpha",
-      channels: [makeChannel({ channelId: "search-1", title: "Search One" })],
+      channels: [makeChannel({ platform: "youtube", channelId: "search-1", title: "Search One" })],
       cached: false,
       source: "search",
     })
@@ -90,9 +100,35 @@ describe("PageContent", () => {
         initialResults: [expect.objectContaining({ channelId: "search-1" })],
         initialSelectedChannels: [expect.objectContaining({ channelId: "chan-1" })],
         configured: true,
+        platforms: ["youtube", "twitch"],
+        twitchParents: ["localhost"],
         initialUpdatedAt: expect.any(String),
       })
     )
+  })
+
+  it("lists the request host and Vercel URLs as Twitch parents", async () => {
+    vi.stubEnv("VERCEL_URL", "project-view-abc123.vercel.app")
+    vi.stubEnv("VERCEL_BRANCH_URL", "project-view-git-feat.vercel.app")
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "view.example.com")
+    mockProjectConfigured.mockReturnValue(false)
+    mockHeaders.mockResolvedValue(
+      new Headers({ host: "internal:3000", "x-forwarded-host": "view.example.com" })
+    )
+
+    render(await PageContent({ searchParams: Promise.resolve({}) }))
+
+    expect(mockMultiwatchApp.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        twitchParents: [
+          "view.example.com",
+          "internal",
+          "project-view-abc123.vercel.app",
+          "project-view-git-feat.vercel.app",
+        ],
+      })
+    )
+    vi.unstubAllEnvs()
   })
 
   it("returns fallback app props when the project is not configured", async () => {

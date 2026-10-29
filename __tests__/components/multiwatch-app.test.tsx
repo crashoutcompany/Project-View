@@ -8,7 +8,9 @@ import type { ComponentProps } from "react"
 
 import type { ChannelResult, SearchPayload } from "@/lib/types"
 
-const mockSearchChannelsAction = vi.fn<(query: string) => Promise<SearchPayload>>()
+const mockSearchChannelsAction = vi.fn<
+  (query: string, platform?: string) => Promise<SearchPayload>
+>()
 const mockRefreshSelectedChannelsAction = vi.fn<
   (channelIds: string[]) => Promise<ChannelResult[]>
 >()
@@ -110,6 +112,7 @@ beforeAll(async () => {
 
 function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
   return {
+    platform: "youtube",
     channelId: "chan-1",
     title: "Channel One",
     description: "Description",
@@ -133,6 +136,8 @@ function renderApp(overrides: Partial<ComponentProps<typeof MultiwatchApp>> = {}
       initialSelectedChannels={[]}
       initialUpdatedAt="2026-03-06T00:00:00.000Z"
       configured
+      platforms={["youtube"]}
+      twitchParents={["localhost"]}
       {...overrides}
     />
   )
@@ -143,6 +148,48 @@ describe("MultiwatchApp", () => {
     mockSearchChannelsAction.mockReset()
     mockRefreshSelectedChannelsAction.mockReset()
     window.history.pushState({}, "", "/")
+  })
+
+  it("filters suggestions by platform and re-runs the search for that platform", async () => {
+    vi.useFakeTimers()
+    mockSearchChannelsAction.mockResolvedValue({
+      query: "alpha",
+      channels: [],
+      cached: false,
+      source: "search",
+    })
+    renderApp({
+      platforms: ["youtube", "twitch"],
+      initialSeedResults: [
+        makeChannel({ channelId: "chan-yt", title: "YouTube Seed" }),
+        makeChannel({
+          platform: "twitch",
+          channelId: "tw:123",
+          login: "seed",
+          title: "Twitch Seed",
+        }),
+      ],
+    })
+
+    expect(screen.getByText("YouTube Seed")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Twitch" }))
+
+    expect(screen.getByRole("button", { name: "Twitch" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.queryByText("YouTube Seed")).not.toBeInTheDocument()
+    expect(screen.getByText("Twitch Seed")).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText("Query"), { target: { value: "alpha" } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+
+    expect(mockSearchChannelsAction).toHaveBeenLastCalledWith("alpha", "twitch")
+  })
+
+  it("hides the platform filter when only one platform is configured", () => {
+    renderApp()
+
+    expect(screen.queryByRole("group", { name: "Filter by platform" })).not.toBeInTheDocument()
   })
 
   it("debounces searches, trims the query, and updates results", async () => {
@@ -168,7 +215,7 @@ describe("MultiwatchApp", () => {
     vi.useRealTimers()
 
     await waitFor(() => {
-      expect(mockSearchChannelsAction).toHaveBeenCalledWith("Alpha")
+      expect(mockSearchChannelsAction).toHaveBeenCalledWith("Alpha", "all")
     })
     expect(screen.getByText("Result Two")).toBeInTheDocument()
   })

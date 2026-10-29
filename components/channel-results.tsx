@@ -2,6 +2,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { ChannelAvatar } from "@/components/channel-avatar";
 import { LiveBadge } from "@/components/live-badge";
+import { PlatformBadge } from "@/components/platform-badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -61,8 +62,11 @@ export function ChannelResults({
                   thumbnailUrl={channel.thumbnailUrl}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">
-                    {channel.title}
+                  <div className="flex items-center gap-1.5">
+                    <PlatformBadge platform={channel.platform} />
+                    <span className="truncate text-sm font-medium">
+                      {channel.title}
+                    </span>
                   </div>
                   <LiveBadge live={channel.live} now={now} className="mt-1" />
                   <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">

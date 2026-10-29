@@ -17,10 +17,15 @@ import {
 import { ChannelCombobox } from "@/components/channel-combobox";
 import { ChannelResults } from "@/components/channel-results";
 import { LiveGrid } from "@/components/live-grid";
+import { PlatformFilter } from "@/components/platform-filter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { sortLiveFirst } from "@/lib/live";
-import { ChannelResult } from "@/lib/types";
+import {
+  ChannelResult,
+  Platform,
+  PlatformFilter as PlatformFilterValue,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type MultiwatchAppProps = {
@@ -30,6 +35,9 @@ type MultiwatchAppProps = {
   initialSelectedChannels: ChannelResult[];
   initialUpdatedAt: string;
   configured: boolean;
+  platforms: Platform[];
+  // Hosts the Twitch player must allow as `parent`, from the request.
+  twitchParents: string[];
 };
 
 function dedupeChannels(channels: ChannelResult[]) {
@@ -74,8 +82,12 @@ export function MultiwatchApp({
   initialSelectedChannels,
   initialUpdatedAt,
   configured,
+  platforms,
+  twitchParents,
 }: MultiwatchAppProps) {
   const [query, setQuery] = React.useState(initialQuery);
+  const [platformFilter, setPlatformFilter] =
+    React.useState<PlatformFilterValue>("all");
   const [seedResults, setSeedResults] = React.useState(initialSeedResults);
   const [results, setResults] = React.useState(
     initialQuery ? initialResults : initialSeedResults,
@@ -134,7 +146,10 @@ export function MultiwatchApp({
     setLastUpdated(new Date().toISOString());
   }
 
-  function runSearch(nextQuery: string) {
+  function runSearch(
+    nextQuery: string,
+    nextPlatform: PlatformFilterValue = platformFilter,
+  ) {
     if (searchTimeoutRef.current) {
       window.clearTimeout(searchTimeoutRef.current);
     }
@@ -149,7 +164,10 @@ export function MultiwatchApp({
     searchTimeoutRef.current = window.setTimeout(() => {
       startTransition(async () => {
         try {
-          const payload = await searchChannelsAction(trimmedQuery);
+          const payload = await searchChannelsAction(
+            trimmedQuery,
+            nextPlatform,
+          );
 
           setResults(payload.channels);
           setSeedResults((current) =>
@@ -199,6 +217,13 @@ export function MultiwatchApp({
     runSearch(nextQuery);
   }
 
+  function handlePlatformChange(nextPlatform: PlatformFilterValue) {
+    setPlatformFilter(nextPlatform);
+    if (query.trim()) {
+      runSearch(query, nextPlatform);
+    }
+  }
+
   function handleManualRefresh() {
     if (!configured || selectedChannels.length === 0) {
       return;
@@ -221,7 +246,13 @@ export function MultiwatchApp({
   ).length;
   // Display order only: the grid and URL keep the order channels were added,
   // so iframes don't remount when a channel goes live.
-  const displayedResults = sortLiveFirst(query.trim() ? results : seedResults);
+  // Also filtered here so stale results from another filter never flash.
+  const displayedResults = sortLiveFirst(
+    query.trim() ? results : seedResults,
+  ).filter(
+    (channel) =>
+      platformFilter === "all" || channel.platform === platformFilter,
+  );
   const sortedSelectedChannels = sortLiveFirst(selectedChannels);
   const selectedIds = selectedChannels.map((channel) => channel.channelId);
   // Selected channels already have their own list above.
@@ -320,6 +351,12 @@ export function MultiwatchApp({
                 onAddChannel={handleAddChannel}
               />
 
+              <PlatformFilter
+                platforms={platforms}
+                value={platformFilter}
+                onChange={handlePlatformChange}
+              />
+
               <div className="text-[10px] text-muted-foreground/60">
                 Updated {new Date(lastUpdated).toLocaleTimeString()}
               </div>
@@ -364,6 +401,7 @@ export function MultiwatchApp({
           <LiveGrid
             channels={selectedChannels}
             activeAudioChannelId={activeAudioChannelId}
+            twitchParents={twitchParents}
           />
         </main>
       </div>
