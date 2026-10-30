@@ -18,6 +18,9 @@ import { ChannelCombobox } from "@/components/channel-combobox";
 import { ChannelResults } from "@/components/channel-results";
 import { LiveGrid } from "@/components/live-grid";
 import { PlatformFilter } from "@/components/platform-filter";
+import { RemovedStreamsToast } from "@/components/settings/removed-streams-toast";
+import { SettingsPanel } from "@/components/settings/settings-panel";
+import { useStreamSettings } from "@/components/settings/use-stream-settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { sortLiveFirst } from "@/lib/live";
@@ -130,7 +133,11 @@ export function MultiwatchApp({
   }
 
   function applyRefreshedChannels(refreshed: ChannelResult[]) {
-    setSelectedChannels(refreshed);
+    const kept = streamSettings.recordCheck(refreshed);
+    setSelectedChannels(kept);
+    if (kept.length !== refreshed.length) {
+      replaceUrl(query, kept);
+    }
     setResults((current) =>
       refreshed.reduce(
         (accumulator, channel) => mergeChannel(accumulator, channel),
@@ -211,6 +218,37 @@ export function MultiwatchApp({
     replaceUrl(query, nextSelectedChannels);
   }
 
+  // Opens a saved group or the remembered streams in place of the selection.
+  function handleOpenChannels(channelIds: string[]) {
+    if (!configured || channelIds.length === 0) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const opened = await refreshSelectedChannelsAction(channelIds);
+        setSelectedChannels(opened);
+        setActiveAudioChannelId(
+          opened.find((channel) => channel.live.status === "live")?.channelId ??
+            opened[0]?.channelId ??
+            null,
+        );
+        replaceUrl(query, opened);
+      } catch (error) {
+        console.error(error);
+      }
+    });
+  }
+
+  function handleRestoreChannels(channels: ChannelResult[]) {
+    const nextSelectedChannels = dedupeChannels([
+      ...selectedChannels,
+      ...channels,
+    ]);
+    setSelectedChannels(nextSelectedChannels);
+    replaceUrl(query, nextSelectedChannels);
+  }
+
   function handleQueryChange(nextQuery: string) {
     setQuery(nextQuery);
     replaceUrl(nextQuery, selectedChannels);
@@ -240,6 +278,14 @@ export function MultiwatchApp({
       }
     });
   }
+
+  const streamSettings = useStreamSettings({
+    channels: selectedChannels,
+    activeAudioChannelId,
+    onLiveCheck: handleManualRefresh,
+    onOpenChannels: handleOpenChannels,
+    onRestoreChannels: handleRestoreChannels,
+  });
 
   const liveCount = selectedChannels.filter(
     (channel) => channel.live.status === "live",
@@ -311,6 +357,12 @@ export function MultiwatchApp({
           >
             <RefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
+
+          <SettingsPanel
+            currentChannelIds={selectedIds}
+            onOpenGroup={handleOpenChannels}
+            groupsEnabled={configured}
+          />
         </div>
       </header>
 
@@ -400,11 +452,21 @@ export function MultiwatchApp({
         <main className="flex-1 overflow-y-auto">
           <LiveGrid
             channels={selectedChannels}
-            activeAudioChannelId={activeAudioChannelId}
+            activeAudioChannelId={streamSettings.audioChannelId}
             twitchParents={twitchParents}
+            layout={streamSettings.settings.gridLayout}
+            quality={streamSettings.settings.defaultQuality}
+            audioSyncKey={streamSettings.audioSyncKey}
+            onFocusAudio={streamSettings.onFocusAudio}
           />
         </main>
       </div>
+
+      <RemovedStreamsToast
+        toast={streamSettings.removedToast}
+        onUndo={streamSettings.undoRemove}
+        onDismiss={streamSettings.dismissRemovedToast}
+      />
     </div>
   );
 }
