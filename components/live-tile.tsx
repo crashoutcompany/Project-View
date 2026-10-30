@@ -19,7 +19,8 @@ type LiveTileProps = {
   // Changing this re-sends the mute state even when it didn't change, e.g. to
   // re-mute a player the viewer unmuted by hand before a fullscreen.
   audioSyncKey?: string
-  // Set when audio follows focus: called on hover, tap or the speaker button.
+  // Set when audio follows focus: called on a tap or click into the player, or
+  // from the speaker button.
   onFocusAudio?: (channelId: string) => void
   className?: string
   style?: React.CSSProperties
@@ -116,15 +117,6 @@ export function LiveTile({
       className={cn("group relative flex flex-col bg-black", className)}
       style={style}
       data-channel-id={channel.channelId}
-      onPointerEnter={
-        focusAudio
-          ? (event) => {
-              if (event.pointerType === "mouse") {
-                focusAudio()
-              }
-            }
-          : undefined
-      }
     >
       {/* Video area fills all space */}
       <div className="flex-1">

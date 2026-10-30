@@ -4,7 +4,7 @@ type AudioInputs = {
   channelIds: string[]
   // The stream picked as the audio source (the existing default).
   activeAudioChannelId: string | null
-  // The last tapped or hovered stream.
+  // The last tapped or clicked stream.
   focusedChannelId: string | null
   // The stream whose player is fullscreen, if any.
   fullscreenChannelId: string | null

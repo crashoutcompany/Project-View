@@ -384,7 +384,7 @@ export function SettingsPanel({
               <ToggleRow
                 settingKey="audioFollowsFocus"
                 label="Audio follows focus"
-                description="Only the stream you hover or tap plays sound. The rest are muted."
+                description="Only the stream you tap or click plays sound. The rest are muted."
               />
               <ToggleRow
                 settingKey="muteOthersOnFullscreen"

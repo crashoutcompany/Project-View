@@ -64,7 +64,7 @@ describe("LiveTile audio and quality", () => {
     )
   })
 
-  it("moves audio focus on hover and from the speaker button", () => {
+  it("moves audio focus from the speaker button and a tap into the player, not on hover", () => {
     const onFocusAudio = vi.fn()
     render(
       <LiveTile
@@ -75,8 +75,11 @@ describe("LiveTile audio and quality", () => {
       />
     )
 
-    const tile = screen.getByTitle("Channel One live stream").closest("[data-channel-id]")!.parentElement!
-    fireEvent.pointerEnter(tile, { pointerType: "mouse" })
+    const iframe = screen.getByTitle("Channel One live stream")
+    fireEvent.pointerEnter(iframe.parentElement!.parentElement!, { pointerType: "mouse" })
+    expect(onFocusAudio).not.toHaveBeenCalled()
+
+    fireEvent.focus(iframe)
     fireEvent.click(screen.getByRole("button", { name: "Play audio from Channel One" }))
 
     expect(onFocusAudio).toHaveBeenCalledTimes(2)
