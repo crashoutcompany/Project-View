@@ -36,3 +36,14 @@ export function twitchPlayerUrl(login: string, parents: string[], muted: boolean
 
   return `https://player.twitch.tv/?${params}`
 }
+
+// Production host, always allowed so chat links shared from prod keep working.
+export const TWITCH_PROD_PARENT = "project-view-rho.vercel.app"
+
+export function twitchChatUrl(login: string, parents: string[], dark: boolean) {
+  const params = new URLSearchParams()
+  parents.forEach((parent) => params.append("parent", parent))
+
+  // `darkpopout` is a bare flag, so it is appended by hand.
+  return `https://www.twitch.tv/embed/${encodeURIComponent(login)}/chat?${params}${dark ? "&darkpopout" : ""}`
+}

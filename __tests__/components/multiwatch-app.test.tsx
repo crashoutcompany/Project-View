@@ -392,4 +392,30 @@ describe("MultiwatchApp", () => {
 
     errorSpy.mockRestore()
   })
+
+  it("hides the chat button until a channel is selected, and closes chat when the last one goes", () => {
+    renderApp()
+
+    expect(screen.queryByRole("button", { name: "Open chat" })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Add first result" }))
+    fireEvent.click(screen.getByRole("button", { name: "Open chat" }))
+
+    const chat = screen.getByRole("complementary", { name: "Live chat" })
+    expect(chat).toHaveAttribute("data-open", "true")
+    expect(within(chat).getByRole("tab", { name: /Channel One/ })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Open chat" })).not.toBeInTheDocument()
+
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "Selected" })).getByRole("button", {
+        name: "Remove chan-1",
+      })
+    )
+
+    expect(chat).toHaveAttribute("data-open", "false")
+    expect(screen.queryByRole("button", { name: "Open chat" })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Add first result" }))
+    expect(screen.getByRole("button", { name: "Open chat" })).toBeInTheDocument()
+  })
 })
