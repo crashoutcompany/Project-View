@@ -6,6 +6,7 @@ import { ChannelResult } from "@/lib/types";
 type LiveGridProps = {
   channels: ChannelResult[];
   activeAudioChannelId: string | null;
+  twitchParents: string[];
 };
 
 function getGridClass(count: number) {
@@ -16,7 +17,11 @@ function getGridClass(count: number) {
   return "md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 }
 
-export function LiveGrid({ channels, activeAudioChannelId }: LiveGridProps) {
+export function LiveGrid({
+  channels,
+  activeAudioChannelId,
+  twitchParents,
+}: LiveGridProps) {
   if (channels.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-center">
@@ -46,6 +51,7 @@ export function LiveGrid({ channels, activeAudioChannelId }: LiveGridProps) {
           key={channel.channelId}
           channel={channel}
           activeAudio={activeAudioChannelId === channel.channelId}
+          twitchParents={twitchParents}
         />
       ))}
     </div>

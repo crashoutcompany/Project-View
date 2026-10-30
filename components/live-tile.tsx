@@ -1,26 +1,49 @@
 import { ChannelAvatar } from "@/components/channel-avatar";
+import { PlatformBadge } from "@/components/platform-badge";
+import { twitchPlayerUrl } from "@/lib/twitch-embed";
 import { ChannelResult } from "@/lib/types";
 
 type LiveTileProps = {
   channel: ChannelResult;
   activeAudio: boolean;
+  twitchParents: string[];
 };
 
-export function LiveTile({ channel, activeAudio }: LiveTileProps) {
-  const isLive = channel.live.status === "live" && channel.live.videoId;
+function embedUrl(
+  channel: ChannelResult,
+  activeAudio: boolean,
+  twitchParents: string[],
+) {
+  if (channel.live.status !== "live") {
+    return null;
+  }
+
+  if (channel.platform === "twitch") {
+    return channel.login && twitchParents.length > 0
+      ? twitchPlayerUrl(channel.login, twitchParents, !activeAudio)
+      : null;
+  }
+
+  return channel.live.videoId
+    ? `https://www.youtube.com/embed/${channel.live.videoId}?autoplay=1&mute=${
+        activeAudio ? "0" : "1"
+      }&rel=0&playsinline=1`
+    : null;
+}
+
+export function LiveTile({ channel, activeAudio, twitchParents }: LiveTileProps) {
+  const src = embedUrl(channel, activeAudio, twitchParents);
 
   return (
     <div className="group relative flex flex-col bg-black">
       {/* Video area fills all space */}
       <div className="flex-1">
-        {isLive ? (
+        {src ? (
           <iframe
             className="size-full"
-            src={`https://www.youtube.com/embed/${channel.live.videoId}?autoplay=1&mute=${
-              activeAudio ? "0" : "1"
-            }&rel=0&playsinline=1`}
+            src={src}
             title={`${channel.title} live stream`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share"
             referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
           />
@@ -46,6 +69,12 @@ export function LiveTile({ channel, activeAudio }: LiveTileProps) {
           </div>
         )}
       </div>
+      {/* Fades on hover so it never covers the player's own controls. */}
+      <PlatformBadge
+        platform={channel.platform}
+        showLabel
+        className="pointer-events-none absolute top-2 left-2 transition-opacity duration-150 ease-out group-hover:opacity-0"
+      />
     </div>
   );
 }

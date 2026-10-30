@@ -11,6 +11,7 @@ import { ChannelCombobox } from "@/components/channel-combobox"
 
 function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
   return {
+    platform: "youtube",
     channelId: "chan-1",
     title: "Channel One",
     description: "Description",
@@ -45,7 +46,7 @@ describe("ChannelCombobox", () => {
       screen.getByText("Looking up channels and checking who is live...")
     ).toBeInTheDocument()
 
-    fireEvent.change(screen.getByPlaceholderText("Type a YouTube channel name..."), {
+    fireEvent.change(screen.getByPlaceholderText("Type a YouTube or Twitch channel name..."), {
       target: { value: "beta" },
     })
 

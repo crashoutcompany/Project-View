@@ -74,6 +74,7 @@ describe("youtube helpers", () => {
 
     await expect(searchChannels("Crash Out", 3)).resolves.toEqual([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Crash Out",
         description: "Streams and clips",
@@ -123,6 +124,7 @@ describe("youtube helpers", () => {
 
     await expect(getChannelsByIds(["chan-1", "chan-2"])).resolves.toEqual([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Channel One",
         description: "Ready to go",
@@ -202,7 +204,7 @@ describe("youtube helpers", () => {
     expect(url.pathname).toBe("/youtube/v3/search")
     expect(url.searchParams.get("eventType")).toBe("live")
     expect(live.startedAt).toBe("2026-03-05T23:00:00.000Z")
-    expect(live.viewerCount).toBeUndefined()
+    expect(live).not.toHaveProperty("viewerCount")
   })
 
   it("throws when the YouTube API returns a non-ok response", async () => {
