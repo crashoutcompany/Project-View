@@ -5,7 +5,7 @@
 - Next.js 16 App Router, React 19, and TypeScript.
 - Tailwind CSS 4 with shadcn/ui and Radix UI primitives.
 - Vitest and Testing Library for tests.
-- Node.js 24 and pnpm 10 for the development toolchain.
+- Node.js 26 and pnpm 10 for the development toolchain.
 - BotID protects server-action POST requests. The `/api/*` BotID rule is intentionally retained for future API routes.
 - YouTube Data API provides channel and live-stream data.
 - Twitch Helix API provides Twitch channel and live-stream data (live streams only, no VODs or clips) using a client-credentials app access token.

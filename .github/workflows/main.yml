@@ -17,4 +17,5 @@ jobs:
     uses: crashoutcompany/.github/.github/workflows/ci.yml@020f7e78cd5cd56b0d110210bd2ef1b715c75be3 # v1.4.0
     with:
       has-e2e: false
+      node-version: "26"
     secrets: inherit
