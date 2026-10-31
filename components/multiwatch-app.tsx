@@ -361,8 +361,9 @@ export function MultiwatchApp({
               <span className="font-medium text-foreground">{liveCount}</span>{" "}
               live
             </span>
-            <span className="text-border/60">/</span>
-            <span>
+            {/* Hidden on phones so the settings button fits the bar. */}
+            <span className="hidden text-border/60 sm:inline">/</span>
+            <span className="hidden sm:inline">
               <span className="font-medium text-foreground">
                 {selectedChannels.length}
               </span>{" "}
