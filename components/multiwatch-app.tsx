@@ -482,6 +482,8 @@ export function MultiwatchApp({
             quality={streamSettings.settings.defaultQuality}
             audioSyncKey={streamSettings.audioSyncKey}
             onFocusAudio={streamSettings.onFocusAudio}
+            fullscreenChannelId={streamSettings.fullscreenChannelId}
+            saverSettings={streamSettings.settings}
           />
         </main>
 

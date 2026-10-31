@@ -5,7 +5,16 @@ import { Volume2, VolumeX } from "lucide-react"
 
 import { ChannelAvatar } from "@/components/channel-avatar"
 import { PlatformBadge } from "@/components/platform-badge"
-import { muteMessage, postToPlayer, qualityMessage, youtubeQualityParam } from "@/lib/embed-control"
+import {
+  muteMessage,
+  parsePlayerMessage,
+  PlayerState,
+  postToPlayer,
+  qualityMessage,
+  youtubeListeningMessage,
+  youtubeQualityParam,
+} from "@/lib/embed-control"
+import { IDLE_SAVER_MEMO, SaverAction, transitionSaver } from "@/lib/fullscreen-saver"
 import type { StreamQuality } from "@/lib/settings"
 import { twitchPlayerUrl } from "@/lib/twitch-embed"
 import { ChannelResult } from "@/lib/types"
@@ -22,6 +31,8 @@ type LiveTileProps = {
   // Set when audio follows focus: called on a tap or click into the player, or
   // from the speaker button.
   onFocusAudio?: (channelId: string) => void
+  // Set while another stream is fullscreen and a resource saver applies.
+  saverAction?: SaverAction | null
   className?: string
   style?: React.CSSProperties
 }
@@ -80,6 +91,7 @@ export function LiveTile({
   quality = "auto",
   audioSyncKey,
   onFocusAudio,
+  saverAction = null,
   className,
   style,
 }: LiveTileProps) {
@@ -94,21 +106,88 @@ export function LiveTile({
   const src = target ? embedUrl(channel, loadedEmbed.muted, twitchParents, loadedEmbed.quality) : null
   const [loadCount, setLoadCount] = React.useState(0)
   const muted = !activeAudio
+  // The saver owns quality while it is active.
+  const saverActive = saverAction !== null
 
+  // Read when the timers fire, so the saver turning off doesn't re-send the
+  // default quality over the one it just restored.
+  const sendPlayerSync = React.useEffectEvent(() => {
+    if (channel.platform === "youtube") {
+      postToPlayer(frameRef.current, youtubeListeningMessage(channel.channelId))
+    }
+    postToPlayer(frameRef.current, muteMessage(channel.platform, muted))
+    if (!saverActive) {
+      postToPlayer(frameRef.current, qualityMessage(channel.platform, quality))
+    }
+  })
   React.useEffect(() => {
     if (loadCount === 0) {
       return
     }
 
+    const timers = COMMAND_RETRY_DELAYS.map((delay) => window.setTimeout(sendPlayerSync, delay))
+
+    return () => timers.forEach((timer) => window.clearTimeout(timer))
+  }, [channel.platform, muted, quality, loadCount, audioSyncKey])
+
+  // What the player reports about itself, so the saver can tell a stream the
+  // viewer paused from one it paused, and remember the Twitch quality.
+  const playerStateRef = React.useRef<PlayerState>({})
+  React.useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (!frameRef.current || event.source !== frameRef.current.contentWindow) {
+        return
+      }
+
+      const state = parsePlayerMessage(event.origin, event.data)
+      if (state) {
+        playerStateRef.current = { ...playerStateRef.current, ...state }
+      }
+    }
+
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [])
+  React.useEffect(() => {
+    playerStateRef.current = {}
+  }, [src])
+
+  // Fullscreen resource saver. A new load is a fresh player, so the memo of
+  // what we changed starts over.
+  const saverMemoRef = React.useRef(IDLE_SAVER_MEMO)
+  const saverLoadRef = React.useRef(0)
+  const runSaver = React.useEffectEvent((action: SaverAction | null) => {
+    if (saverLoadRef.current !== loadCount) {
+      saverLoadRef.current = loadCount
+      saverMemoRef.current = IDLE_SAVER_MEMO
+    }
+
+    const { memo, commands } = transitionSaver(saverMemoRef.current, action, {
+      platform: channel.platform,
+      player: playerStateRef.current,
+      requestedQuality: quality,
+    })
+    saverMemoRef.current = memo
+    return commands
+  })
+  React.useEffect(() => {
+    if (loadCount === 0) {
+      return
+    }
+
+    const commands = runSaver(saverAction)
+    if (commands.length === 0) {
+      return
+    }
+
     const timers = COMMAND_RETRY_DELAYS.map((delay) =>
       window.setTimeout(() => {
-        postToPlayer(frameRef.current, muteMessage(channel.platform, muted))
-        postToPlayer(frameRef.current, qualityMessage(channel.platform, quality))
+        commands.forEach((command) => postToPlayer(frameRef.current, command))
       }, delay)
     )
 
     return () => timers.forEach((timer) => window.clearTimeout(timer))
-  }, [channel.platform, muted, quality, loadCount, audioSyncKey])
+  }, [saverAction, loadCount])
 
   const focusAudio = onFocusAudio ? () => onFocusAudio(channel.channelId) : undefined
 

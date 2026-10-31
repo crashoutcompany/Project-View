@@ -63,6 +63,124 @@ export function qualityMessage(platform: Platform, quality: StreamQuality): Play
     : youtubeCommand("setPlaybackQuality", [value])
 }
 
+export function playbackMessage(platform: Platform, playing: boolean): PlayerMessage {
+  return platform === "twitch"
+    ? twitchCommand(playing ? "play" : "pause", null)
+    : youtubeCommand(playing ? "playVideo" : "pauseVideo")
+}
+
+/** Sets a Twitch rendition by name, including "auto". */
+export function twitchQualityMessage(value: string): PlayerMessage {
+  return twitchCommand("setQuality", value)
+}
+
+// The smallest video rendition most Twitch channels offer.
+export const TWITCH_LOWEST_QUALITY = "160p30"
+
+export function twitchRequestedQuality(quality: StreamQuality) {
+  return TWITCH_QUALITY[quality] ?? "auto"
+}
+
+/** Asks a YouTube player to start sending its state (infoDelivery events). */
+export function youtubeListeningMessage(id: string): PlayerMessage {
+  return {
+    targetOrigin: YOUTUBE_ORIGIN,
+    message: JSON.stringify({ event: "listening", id, channel: "widget" }),
+  }
+}
+
+// What a player last told us about itself. `undefined` means not heard yet.
+export type PlayerState = { playing?: boolean; quality?: string }
+
+// YouTube player states: -1 unstarted, 0 ended, 1 playing, 2 paused,
+// 3 buffering, 5 cued.
+function youtubePlaying(state: unknown) {
+  return typeof state === "number" ? state === 1 || state === 3 : undefined
+}
+
+function twitchPlaying(params: Record<string, unknown>) {
+  if (typeof params.paused === "boolean") {
+    return !params.paused
+  }
+
+  switch (params.playback) {
+    case "Playing":
+    case "Buffering":
+      return true
+    case "Paused":
+    case "Ended":
+    case "Idle":
+      return false
+    default:
+      return undefined
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Reads a message a player posted to the page. Only the two player origins are
+ * trusted; anything else, or a shape we don't know, returns null.
+ */
+export function parsePlayerMessage(origin: string, data: unknown): PlayerState | null {
+  if (origin === YOUTUBE_ORIGIN) {
+    let parsed: unknown = data
+    if (typeof data === "string") {
+      try {
+        parsed = JSON.parse(data)
+      } catch {
+        return null
+      }
+    }
+
+    if (!isRecord(parsed)) {
+      return null
+    }
+
+    if (parsed.event === "onStateChange") {
+      const playing = youtubePlaying(parsed.info)
+      return playing === undefined ? null : { playing }
+    }
+
+    if ((parsed.event === "infoDelivery" || parsed.event === "initialDelivery") && isRecord(parsed.info)) {
+      const playing = youtubePlaying(parsed.info.playerState)
+      return playing === undefined ? null : { playing }
+    }
+
+    return null
+  }
+
+  if (origin === TWITCH_PLAYER_ORIGIN) {
+    if (!isRecord(data) || typeof data.namespace !== "string" || !data.namespace.startsWith("twitch-embed")) {
+      return null
+    }
+
+    if (data.eventName === "play" || data.eventName === "playing") {
+      return { playing: true }
+    }
+
+    if (data.eventName === "pause" || data.eventName === "ended") {
+      return { playing: false }
+    }
+
+    if (data.eventName === "UPDATE_STATE" && isRecord(data.params)) {
+      const state: PlayerState = {}
+      const playing = twitchPlaying(data.params)
+      if (playing !== undefined) {
+        state.playing = playing
+      }
+      if (typeof data.params.quality === "string" && data.params.quality) {
+        state.quality = data.params.quality
+      }
+      return state
+    }
+  }
+
+  return null
+}
+
 export function postToPlayer(frame: HTMLIFrameElement | null, command: PlayerMessage | null) {
   if (!frame?.contentWindow || !command) {
     return

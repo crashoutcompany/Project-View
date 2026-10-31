@@ -393,6 +393,19 @@ export function SettingsPanel({
               />
             </Section>
 
+            <Section title="Full screen">
+              <ToggleRow
+                settingKey="saveResourcesOnFullscreen"
+                label="Save resources while full screen"
+                description="Other Twitch streams drop to the lowest quality and YouTube streams pause. Restored when you exit."
+              />
+              <ToggleRow
+                settingKey="pauseOthersOnFullscreen"
+                label="Pause others in full screen"
+                description="Every other stream pauses instead, with no quality change. Only streams paused here resume."
+              />
+            </Section>
+
             <Section title="Streams">
               <ToggleRow
                 settingKey="autoRemoveOffline"
