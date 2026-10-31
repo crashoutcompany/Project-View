@@ -2,7 +2,8 @@ import type * as React from "react";
 import { PanelLeftOpen, RadioTower } from "lucide-react";
 
 import { LiveTile } from "@/components/live-tile";
-import type { GridLayout, StreamQuality } from "@/lib/settings";
+import { fullscreenSaverAction } from "@/lib/fullscreen-saver";
+import type { GridLayout, Settings, StreamQuality } from "@/lib/settings";
 import { ChannelResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +15,12 @@ type LiveGridProps = {
   quality?: StreamQuality;
   audioSyncKey?: string;
   onFocusAudio?: (channelId: string) => void;
+  // The stream whose player is fullscreen, if it is one of these.
+  fullscreenChannelId?: string | null;
+  saverSettings?: Pick<Settings, "saveResourcesOnFullscreen" | "pauseOthersOnFullscreen">;
 };
+
+const SAVER_OFF = { saveResourcesOnFullscreen: false, pauseOthersOnFullscreen: false };
 
 function getGridClass(count: number, layout: GridLayout) {
   if (count <= 1) return "";
@@ -41,6 +47,8 @@ export function LiveGrid({
   quality,
   audioSyncKey,
   onFocusAudio,
+  fullscreenChannelId = null,
+  saverSettings = SAVER_OFF,
 }: LiveGridProps) {
   if (channels.length === 0) {
     return (
@@ -79,6 +87,12 @@ export function LiveGrid({
           quality={quality}
           audioSyncKey={audioSyncKey}
           onFocusAudio={onFocusAudio}
+          saverAction={fullscreenSaverAction({
+            channelId: channel.channelId,
+            platform: channel.platform,
+            fullscreenChannelId,
+            settings: saverSettings,
+          })}
           // One big plus small: the first stream spans the left column and
           // the rest stack on the right. Placement is by CSS, not DOM order,
           // so no iframe remounts.

@@ -32,6 +32,8 @@ describe("settings store", () => {
       audioFollowsFocus: true,
       autoRemoveOffline: true,
       muteOthersOnFullscreen: false,
+      saveResourcesOnFullscreen: false,
+      pauseOthersOnFullscreen: true,
       defaultQuality: "low" as const,
       gridLayout: "featured" as const,
       rememberLastStreams: true,
@@ -49,12 +51,15 @@ describe("settings store", () => {
       autoRemoveOffline: true,
       defaultQuality: "8k",
       gridLayout: "two-columns",
+      saveResourcesOnFullscreen: "no",
     })
 
     expect(migrated.audioFollowsFocus).toBe(DEFAULT_SETTINGS.audioFollowsFocus)
     expect(migrated.autoRemoveOffline).toBe(true)
     expect(migrated.defaultQuality).toBe("auto")
     expect(migrated.gridLayout).toBe("two-columns")
+    expect(migrated.saveResourcesOnFullscreen).toBe(true)
+    expect(migrated.pauseOthersOnFullscreen).toBe(false)
   })
 
   it("migrates an unversioned (pre-v1) value and ignores unknown versions", () => {

@@ -204,6 +204,8 @@ export function useStreamSettings({
   return {
     settings,
     audioChannelId,
+    // Only a stream on this wall counts as fullscreen.
+    fullscreenChannelId: fullscreenId && channelIds.includes(fullscreenId) ? fullscreenId : null,
     // Re-sync mutes on every fullscreen change while that setting is on.
     audioSyncKey: settings.muteOthersOnFullscreen ? (fullscreenId ?? "") : "",
     onFocusAudio: settings.audioFollowsFocus ? setFocusedChannelId : undefined,

@@ -25,6 +25,8 @@ export type SavedGroup = {
 export type Settings = {
   version: typeof SETTINGS_VERSION
   muteOthersOnFullscreen: boolean
+  saveResourcesOnFullscreen: boolean
+  pauseOthersOnFullscreen: boolean
   autoRemoveOffline: boolean
   audioFollowsFocus: boolean
   defaultQuality: StreamQuality
@@ -37,6 +39,8 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = Object.freeze({
   version: SETTINGS_VERSION,
   muteOthersOnFullscreen: true,
+  saveResourcesOnFullscreen: true,
+  pauseOthersOnFullscreen: false,
   autoRemoveOffline: false,
   audioFollowsFocus: false,
   defaultQuality: "auto",
@@ -122,6 +126,14 @@ export function migrateSettings(raw: unknown): Settings {
     muteOthersOnFullscreen: readBoolean(
       raw.muteOthersOnFullscreen,
       DEFAULT_SETTINGS.muteOthersOnFullscreen
+    ),
+    saveResourcesOnFullscreen: readBoolean(
+      raw.saveResourcesOnFullscreen,
+      DEFAULT_SETTINGS.saveResourcesOnFullscreen
+    ),
+    pauseOthersOnFullscreen: readBoolean(
+      raw.pauseOthersOnFullscreen,
+      DEFAULT_SETTINGS.pauseOthersOnFullscreen
     ),
     autoRemoveOffline: readBoolean(raw.autoRemoveOffline, DEFAULT_SETTINGS.autoRemoveOffline),
     audioFollowsFocus: readBoolean(raw.audioFollowsFocus, DEFAULT_SETTINGS.audioFollowsFocus),
