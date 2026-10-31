@@ -31,6 +31,15 @@ vi.doMock("@/lib/redis", () => ({
   REDIS_TIMEOUT_MS: 1000,
 }))
 
+// Twitch is covered in search-service-twitch.test.ts; keep it off here.
+vi.doMock("@/lib/twitch", () => ({
+  getStreamsByUserIds: vi.fn(),
+  getUsersByIds: vi.fn(),
+  HELIX_MAX_IDS: 100,
+  searchChannels: vi.fn(),
+  twitchConfigured: () => false,
+}))
+
 vi.doMock("@/lib/youtube", () => ({
   getChannelsByIds: mockGetChannelsByIds,
   getLiveVideoForChannel: mockGetLiveVideoForChannel,
@@ -93,6 +102,7 @@ describe("search service", () => {
     mockGetRedis.mockReturnValue(null)
     mockGetChannelsByIds.mockImplementation(async (channelIds: string[]) =>
       channelIds.map((channelId) => ({
+        platform: "youtube",
         channelId,
         title: channelId,
         description: "",
@@ -106,7 +116,6 @@ describe("search service", () => {
             checkedAt: "now",
             videoId: "video-1",
             startedAt: "2026-03-05T23:00:00.000Z",
-            viewerCount: 1200,
           }
         : { status: "offline", checkedAt: "now" }
     )
@@ -124,26 +133,25 @@ describe("search service", () => {
     expect(selected[0]?.live).toMatchObject({
       status: "live",
       startedAt: "2026-03-05T23:00:00.000Z",
-      viewerCount: 1200,
     })
   })
 
-  it("serves cached live state, including viewer count, without calling YouTube", async () => {
+  it("serves cached live state, including uptime, without calling YouTube", async () => {
     const redis = createRedisMock()
     mockGetRedis.mockReturnValue(redis)
     redis.get.mockImplementation(async (key: string) => {
       if (key === channelCacheKey("chan-1")) {
-        return { channelId: "chan-1", title: "One", description: "", thumbnailUrl: "" }
+        return { platform: "youtube", channelId: "chan-1", title: "One", description: "", thumbnailUrl: "" }
       }
       if (key === liveCacheKey("chan-1")) {
-        return { status: "live", checkedAt: "x", videoId: "v", viewerCount: 42 }
+        return { status: "live", checkedAt: "x", videoId: "v", startedAt: "cached-start" }
       }
       return null
     })
 
     const selected = await getSelectedChannels(["chan-1"])
 
-    expect(selected[0]?.live.viewerCount).toBe(42)
+    expect(selected[0]?.live.startedAt).toBe("cached-start")
     expect(mockGetChannelsByIds).not.toHaveBeenCalled()
     expect(mockGetLiveVideoForChannel).not.toHaveBeenCalled()
   })
@@ -178,6 +186,7 @@ describe("search service", () => {
       if (key === seedCacheKey) {
         return [
           {
+            platform: "youtube",
             channelId: "chan-1",
             title: "Seeded",
             description: "Ready",
@@ -201,6 +210,7 @@ describe("search service", () => {
       query: "",
       channels: [
         {
+          platform: "youtube",
           channelId: "chan-1",
           title: "Seeded",
           description: "Ready",
@@ -226,6 +236,7 @@ describe("search service", () => {
       if (key === seedCacheKey) {
         return [
           {
+            platform: "youtube",
             channelId: "seed-existing",
             title: "Existing Seed",
             description: "Existing",
@@ -239,6 +250,7 @@ describe("search service", () => {
 
     mockSearchChannels.mockResolvedValue(
       Array.from({ length: SEARCH_RESULT_LIMIT + 1 }, (_, index) => ({
+        platform: "youtube",
         channelId: `chan-${index + 1}`,
         title: `Channel ${index + 1}`,
         description: `Description ${index + 1}`,
@@ -295,6 +307,7 @@ describe("search service", () => {
     const redis = createRedisMock()
     const cachedChannels = [
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Cached",
         description: "Cached description",
@@ -349,6 +362,7 @@ describe("search service", () => {
     mockGetRedis.mockReturnValue(null)
     mockSearchChannels.mockResolvedValue([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Channel One",
         description: "Desc",
@@ -364,6 +378,7 @@ describe("search service", () => {
       query: "channel",
       channels: [
         {
+          platform: "youtube",
           channelId: "chan-1",
           title: "Channel One",
           description: "Desc",
@@ -388,6 +403,7 @@ describe("search service", () => {
 
       return [
         {
+          platform: "youtube",
           channelId,
           title: `Title ${channelId}`,
           description: "",
@@ -404,6 +420,7 @@ describe("search service", () => {
       getSelectedChannels(["chan-1", "chan-1", "", "missing", "chan-2"])
     ).resolves.toEqual([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Title chan-1",
         description: "",
@@ -414,6 +431,7 @@ describe("search service", () => {
         },
       },
       {
+        platform: "youtube",
         channelId: "chan-2",
         title: "Title chan-2",
         description: "",
@@ -433,6 +451,7 @@ describe("search service", () => {
     mockGetRedis.mockReturnValue(redis)
     mockGetChannelsByIds.mockResolvedValue([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Channel One",
         description: "",
@@ -448,6 +467,7 @@ describe("search service", () => {
     const payload = await refreshChannelLiveStatus("chan-1")
 
     expect(payload).toEqual({
+      platform: "youtube",
       channelId: "chan-1",
       title: "Channel One",
       description: "",
@@ -481,7 +501,7 @@ describe("search service", () => {
     redis.set.mockRejectedValue(outage)
     mockGetRedis.mockReturnValue(redis)
     mockSearchChannels.mockResolvedValue([
-      { channelId: "chan-1", title: "Channel One", description: "", thumbnailUrl: "" },
+      { platform: "youtube", channelId: "chan-1", title: "Channel One", description: "", thumbnailUrl: "" },
     ])
     mockGetLiveVideoForChannel.mockResolvedValue({
       status: "offline",
@@ -494,7 +514,7 @@ describe("search service", () => {
       channels: [{ channelId: "chan-1", live: { status: "offline" } }],
     })
     mockGetChannelsByIds.mockResolvedValue([
-      { channelId: "chan-2", title: "Channel Two", description: "", thumbnailUrl: "" },
+      { platform: "youtube", channelId: "chan-2", title: "Channel Two", description: "", thumbnailUrl: "" },
     ])
     await expect(getSelectedChannels(["chan-2"])).resolves.toMatchObject([
       { channelId: "chan-2", live: { status: "offline" } },
@@ -526,7 +546,7 @@ describe("search service", () => {
       const redis = createRedisMock()
       redis.get.mockImplementation(async (key: string) =>
         key === channelCacheKey("chan-1")
-          ? { channelId: "chan-1", title: "Cached", description: "", thumbnailUrl: "c.jpg" }
+          ? { platform: "youtube", channelId: "chan-1", title: "Cached", description: "", thumbnailUrl: "c.jpg" }
           : null
       )
       mockGetRedis.mockReturnValue(redis)
@@ -535,6 +555,7 @@ describe("search service", () => {
 
       await expect(getSelectedChannels(["chan-1", "chan-2"])).resolves.toEqual([
         {
+          platform: "youtube",
           channelId: "chan-1",
           title: "Cached",
           description: "",
@@ -542,6 +563,7 @@ describe("search service", () => {
           live: { status: "unknown", checkedAt: expect.any(String) },
         },
         {
+          platform: "youtube",
           channelId: "chan-2",
           title: "chan-2",
           description: "",

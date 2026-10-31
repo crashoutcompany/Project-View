@@ -8,6 +8,7 @@
 - Node.js 24 and pnpm 10 for the development toolchain.
 - BotID protects server-action POST requests. The `/api/*` BotID rule is intentionally retained for future API routes.
 - YouTube Data API provides channel and live-stream data.
+- Twitch Helix API provides Twitch channel and live-stream data (live streams only, no VODs or clips) using a client-credentials app access token.
 - Upstash Redis is an optional cache. It is not the application's database.
 
 This application intentionally has no user authentication and no database. Do not add auth, database migrations, ORM setup, or preview databases without an approved product requirement.
@@ -19,8 +20,10 @@ The supported environment variable names are:
 - `YOUTUBE_API_KEY`
 - `KV_REST_API_URL`
 - `KV_REST_API_TOKEN`
+- `TWITCH_CLIENT_ID`
+- `TWITCH_CLIENT_SECRET`
 
-Never commit or document environment variable values. The app must degrade gracefully instead of crashing the page. Missing `YOUTUBE_API_KEY` leaves the project unconfigured. Redis is optional: when the `KV_*` variables are missing, or Redis errors or times out, cache calls in `lib/cache.ts` fail soft and requests go straight to YouTube. YouTube failures (quota, bad key, timeout) degrade results in `lib/search-service.ts` and are never cached. Both log one warning per outage.
+Never commit or document environment variable values. The app must degrade gracefully instead of crashing the page. Missing `YOUTUBE_API_KEY` leaves YouTube unconfigured, and missing `TWITCH_CLIENT_*` leaves Twitch unconfigured; with neither, the project is unconfigured. Redis is optional: when the `KV_*` variables are missing, or Redis errors or times out, cache calls in `lib/cache.ts` fail soft and requests go straight to YouTube. YouTube failures (quota, bad key, timeout) and Twitch failures (bad credentials, outage, timeout) degrade only that platform's results in `lib/search-service.ts` and are never cached. Each logs one warning per outage.
 
 There is no test-login route because Project View has no gated user pages.
 
@@ -37,7 +40,7 @@ Run lint, typecheck, tests, and build before handing off changes.
 
 ## Cloud Agent
 
-`.cursor/environment.json` installs dependencies with the frozen lockfile, starts `pnpm dev`, and exposes port 3000. Configure the environment variable names above as Cloud Agent secrets when live YouTube and Redis behavior is required; checks and the unconfigured UI must still work without them.
+`.cursor/environment.json` installs dependencies with the frozen lockfile, starts `pnpm dev`, and exposes port 3000. Configure the environment variable names above as Cloud Agent secrets when live YouTube, Twitch and Redis behavior is required; checks and the unconfigured UI must still work without them.
 
 ## Shared-file convention
 

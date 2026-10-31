@@ -4,6 +4,7 @@ import { ChevronsUpDown, LoaderCircle, Plus } from "lucide-react"
 
 import { ChannelAvatar } from "@/components/channel-avatar"
 import { LiveBadge } from "@/components/live-badge"
+import { PlatformBadge } from "@/components/platform-badge"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -54,7 +55,7 @@ export function ChannelCombobox({
           <CommandInput
             value={query}
             onValueChange={onQueryChange}
-            placeholder="Type a YouTube channel name..."
+            placeholder="Type a YouTube or Twitch channel name..."
             disabled={disabled}
           />
           <CommandList>
@@ -85,6 +86,7 @@ export function ChannelCombobox({
                   <ChannelAvatar title={channel.title} thumbnailUrl={channel.thumbnailUrl} />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
+                      <PlatformBadge platform={channel.platform} />
                       <span className="truncate text-sm font-medium">{channel.title}</span>
                       <LiveBadge live={channel.live} now={now} />
                     </div>
