@@ -175,4 +175,12 @@ describe("MultiwatchApp settings", () => {
       "UCz",
     ])
   })
+
+  it("forgets the remembered streams when the setting is turned off", () => {
+    store({ rememberLastStreams: false, lastChannelIds: ["UCa"] })
+    renderApp()
+
+    expect(mockRefreshSelectedChannelsAction).not.toHaveBeenCalled()
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}").lastChannelIds).toEqual([])
+  })
 })

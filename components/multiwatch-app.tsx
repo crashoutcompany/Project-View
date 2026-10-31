@@ -16,6 +16,7 @@ import {
 } from "@/app/actions";
 import { ChannelCombobox } from "@/components/channel-combobox";
 import { ChannelResults } from "@/components/channel-results";
+import { ChatToggleButton, LiveChatPanel } from "@/components/live-chat";
 import { LiveGrid } from "@/components/live-grid";
 import { PlatformFilter } from "@/components/platform-filter";
 import { RemovedStreamsToast } from "@/components/settings/removed-streams-toast";
@@ -111,6 +112,8 @@ export function MultiwatchApp({
   const [sidebarOpen, setSidebarOpen] = React.useState(
     initialSelectedChannels.length === 0,
   );
+  // Hidden by default; only reachable once a channel is selected.
+  const [chatOpen, setChatOpen] = React.useState(false);
   // Starts from the server timestamp so uptime text hydrates without a
   // mismatch, then ticks once a minute.
   const [now, setNow] = React.useState(() => Date.parse(initialUpdatedAt));
@@ -135,6 +138,9 @@ export function MultiwatchApp({
   function applyRefreshedChannels(refreshed: ChannelResult[]) {
     const kept = streamSettings.recordCheck(refreshed);
     setSelectedChannels(kept);
+    if (kept.length === 0) {
+      setChatOpen(false);
+    }
     if (kept.length !== refreshed.length) {
       replaceUrl(query, kept);
     }
@@ -215,6 +221,10 @@ export function MultiwatchApp({
       setActiveAudioChannelId(nextSelectedChannels[0]?.channelId ?? null);
     }
 
+    if (nextSelectedChannels.length === 0) {
+      setChatOpen(false);
+    }
+
     replaceUrl(query, nextSelectedChannels);
   }
 
@@ -283,9 +293,22 @@ export function MultiwatchApp({
     channels: selectedChannels,
     activeAudioChannelId,
     onLiveCheck: handleManualRefresh,
-    onOpenChannels: handleOpenChannels,
     onRestoreChannels: handleRestoreChannels,
   });
+
+  // Reopen the last streams once, unless the link already names some.
+  const { restoreChannelIds, onRestoreHandled } = streamSettings;
+  const restoreLastStreams = React.useEffectEvent((channelIds: string[]) => {
+    onRestoreHandled();
+    if (!new URLSearchParams(window.location.search).has("channels")) {
+      handleOpenChannels(channelIds);
+    }
+  });
+  React.useEffect(() => {
+    if (restoreChannelIds) {
+      restoreLastStreams(restoreChannelIds);
+    }
+  }, [restoreChannelIds]);
 
   const liveCount = selectedChannels.filter(
     (channel) => channel.live.status === "live",
@@ -460,6 +483,13 @@ export function MultiwatchApp({
             onFocusAudio={streamSettings.onFocusAudio}
           />
         </main>
+
+        <LiveChatPanel
+          open={chatOpen && selectedChannels.length > 0}
+          channels={selectedChannels}
+          twitchParents={twitchParents}
+          onClose={() => setChatOpen(false)}
+        />
       </div>
 
       <RemovedStreamsToast
@@ -467,6 +497,10 @@ export function MultiwatchApp({
         onUndo={streamSettings.undoRemove}
         onDismiss={streamSettings.dismissRemovedToast}
       />
+
+      {selectedChannels.length > 0 && !chatOpen ? (
+        <ChatToggleButton onClick={() => setChatOpen(true)} />
+      ) : null}
     </div>
   );
 }

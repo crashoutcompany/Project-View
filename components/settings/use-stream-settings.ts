@@ -21,8 +21,6 @@ type UseStreamSettingsOptions = {
   activeAudioChannelId: string | null
   // Runs a live check; the results come back through `recordCheck`.
   onLiveCheck: () => void
-  // Replaces the selection with these ids (restore last visit).
-  onOpenChannels: (channelIds: string[]) => void
   // Puts removed channels back (undo).
   onRestoreChannels: (channels: ChannelResult[]) => void
 }
@@ -42,7 +40,6 @@ export function useStreamSettings({
   channels,
   activeAudioChannelId,
   onLiveCheck,
-  onOpenChannels,
   onRestoreChannels,
 }: UseStreamSettingsOptions) {
   const settings = useSettings()
@@ -112,11 +109,12 @@ export function useStreamSettings({
         return refreshed
       }
 
+      const expiredIds = new Set(expired)
       setRemovedToast({
         id: Date.now(),
-        channels: refreshed.filter((channel) => expired.includes(channel.channelId)),
+        channels: refreshed.filter((channel) => expiredIds.has(channel.channelId)),
       })
-      return refreshed.filter((channel) => !expired.includes(channel.channelId))
+      return refreshed.filter((channel) => !expiredIds.has(channel.channelId))
     },
     [channels]
   )
@@ -161,32 +159,37 @@ export function useStreamSettings({
     setRemovedToast(null)
   }
 
-  // Remember the last streams: restore once on load when the URL has none.
-  const seenSelectionRef = React.useRef(false)
-  const restoreLastStreams = React.useEffectEvent(() => {
-    const stored = readSettings()
-    const urlHasChannels = new URLSearchParams(window.location.search).has("channels")
-    if (
-      stored.rememberLastStreams &&
-      !urlHasChannels &&
-      channelKey === "" &&
-      stored.lastChannelIds.length > 0
-    ) {
-      onOpenChannels(stored.lastChannelIds)
-    }
-  })
-  React.useEffect(() => {
-    restoreLastStreams()
-  }, [])
+  // Remember the last streams. The ids to reopen are returned as data, only
+  // while the page opened empty and nothing has been picked yet; the caller
+  // opens them and marks the restore handled.
+  const [openedEmpty] = React.useState(channelKey === "")
+  const [restoreHandled, setRestoreHandled] = React.useState(false)
+  const restoreChannelIds =
+    openedEmpty &&
+    !restoreHandled &&
+    channelKey === "" &&
+    settings.rememberLastStreams &&
+    settings.lastChannelIds.length > 0
+      ? settings.lastChannelIds
+      : null
 
+  const seenSelectionRef = React.useRef(false)
   const remember = settings.rememberLastStreams
   React.useEffect(() => {
     if (channelKey) {
       seenSelectionRef.current = true
     }
 
+    // Turning the setting off forgets the list.
+    if (!remember) {
+      if (readSettings().lastChannelIds.length > 0) {
+        updateSettings((current) => ({ ...current, lastChannelIds: [] }))
+      }
+      return
+    }
+
     // An empty selection on load must not wipe the list we are restoring.
-    if (!remember || !seenSelectionRef.current) {
+    if (!seenSelectionRef.current) {
       return
     }
 
@@ -205,6 +208,8 @@ export function useStreamSettings({
     audioSyncKey: settings.muteOthersOnFullscreen ? (fullscreenId ?? "") : "",
     onFocusAudio: settings.audioFollowsFocus ? setFocusedChannelId : undefined,
     recordCheck,
+    restoreChannelIds,
+    onRestoreHandled: () => setRestoreHandled(true),
     removedToast,
     undoRemove,
     dismissRemovedToast: () => setRemovedToast(null),
