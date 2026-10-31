@@ -15,6 +15,12 @@ export function hasYouTubeEnv() {
   return Boolean(optionalEnv("YOUTUBE_API_KEY"));
 }
 
+export function hasTwitchEnv() {
+  return Boolean(
+    optionalEnv("TWITCH_CLIENT_ID") && optionalEnv("TWITCH_CLIENT_SECRET"),
+  );
+}
+
 export function getRequiredEnv(name: string) {
   const value = optionalEnv(name);
 

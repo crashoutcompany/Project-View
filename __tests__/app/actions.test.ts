@@ -65,7 +65,37 @@ describe("server actions", () => {
     mockGetSearchResults.mockResolvedValueOnce(payload)
 
     await expect(searchChannelsAction("abc")).resolves.toEqual(payload)
-    expect(mockGetSearchResults).toHaveBeenCalledWith("abc")
+    expect(mockGetSearchResults).toHaveBeenCalledWith("abc", "all")
+  })
+
+  it("passes a platform filter through and rejects unknown platforms", async () => {
+    mockGetSearchResults.mockResolvedValueOnce({
+      query: "abc",
+      channels: [],
+      cached: false,
+      source: "search",
+    })
+
+    await searchChannelsAction("abc", "twitch")
+    expect(mockGetSearchResults).toHaveBeenCalledWith("abc", "twitch")
+
+    await expect(
+      searchChannelsAction("abc", "kick" as unknown as "twitch")
+    ).rejects.toThrow("Invalid platform")
+  })
+
+  it("canonicalizes yt: ids and accepts tw: ids on refresh", async () => {
+    mockRefreshChannelLiveStatus.mockResolvedValue(null)
+
+    await refreshSelectedChannelsAction(["yt:UC123", "UC123", "tw:12345"])
+
+    expect(mockRefreshChannelLiveStatus.mock.calls.map(([id]) => id)).toEqual([
+      "UC123",
+      "tw:12345",
+    ])
+    await expect(refreshSelectedChannelsAction(["tw:not-a-number"])).rejects.toThrow(
+      "Invalid channel ids"
+    )
   })
 
   it("returns an empty array on refresh when the project is not configured", async () => {
@@ -78,6 +108,7 @@ describe("server actions", () => {
   it("deduplicates ids, drops blanks, and filters null refreshes", async () => {
     mockRefreshChannelLiveStatus
       .mockResolvedValueOnce({
+        platform: "youtube",
         channelId: "chan-1",
         title: "Channel One",
         description: "",
@@ -90,6 +121,7 @@ describe("server actions", () => {
       refreshSelectedChannelsAction(["chan-1", "", "chan-1", "chan-2"])
     ).resolves.toEqual([
       {
+        platform: "youtube",
         channelId: "chan-1",
         title: "Channel One",
         description: "",

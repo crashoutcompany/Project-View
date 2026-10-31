@@ -16,10 +16,20 @@ import {
 } from "@/app/actions";
 import { ChannelCombobox } from "@/components/channel-combobox";
 import { ChannelResults } from "@/components/channel-results";
+import { ChatToggleButton, LiveChatPanel } from "@/components/live-chat";
 import { LiveGrid } from "@/components/live-grid";
+import { PlatformFilter } from "@/components/platform-filter";
+import { RemovedStreamsToast } from "@/components/settings/removed-streams-toast";
+import { SettingsPanel } from "@/components/settings/settings-panel";
+import { useStreamSettings } from "@/components/settings/use-stream-settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChannelResult } from "@/lib/types";
+import { sortLiveFirst } from "@/lib/live";
+import {
+  ChannelResult,
+  Platform,
+  PlatformFilter as PlatformFilterValue,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type MultiwatchAppProps = {
@@ -29,6 +39,9 @@ type MultiwatchAppProps = {
   initialSelectedChannels: ChannelResult[];
   initialUpdatedAt: string;
   configured: boolean;
+  platforms: Platform[];
+  // Hosts the Twitch player must allow as `parent`, from the request.
+  twitchParents: string[];
 };
 
 function dedupeChannels(channels: ChannelResult[]) {
@@ -73,8 +86,12 @@ export function MultiwatchApp({
   initialSelectedChannels,
   initialUpdatedAt,
   configured,
+  platforms,
+  twitchParents,
 }: MultiwatchAppProps) {
   const [query, setQuery] = React.useState(initialQuery);
+  const [platformFilter, setPlatformFilter] =
+    React.useState<PlatformFilterValue>("all");
   const [seedResults, setSeedResults] = React.useState(initialSeedResults);
   const [results, setResults] = React.useState(
     initialQuery ? initialResults : initialSeedResults,
@@ -95,7 +112,17 @@ export function MultiwatchApp({
   const [sidebarOpen, setSidebarOpen] = React.useState(
     initialSelectedChannels.length === 0,
   );
+  // Hidden by default; only reachable once a channel is selected.
+  const [chatOpen, setChatOpen] = React.useState(false);
+  // Starts from the server timestamp so uptime text hydrates without a
+  // mismatch, then ticks once a minute.
+  const [now, setNow] = React.useState(() => Date.parse(initialUpdatedAt));
   const searchTimeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   function replaceUrl(
     nextQuery: string,
@@ -109,7 +136,14 @@ export function MultiwatchApp({
   }
 
   function applyRefreshedChannels(refreshed: ChannelResult[]) {
-    setSelectedChannels(refreshed);
+    const kept = streamSettings.recordCheck(refreshed);
+    setSelectedChannels(kept);
+    if (kept.length === 0) {
+      setChatOpen(false);
+    }
+    if (kept.length !== refreshed.length) {
+      replaceUrl(query, kept);
+    }
     setResults((current) =>
       refreshed.reduce(
         (accumulator, channel) => mergeChannel(accumulator, channel),
@@ -125,7 +159,10 @@ export function MultiwatchApp({
     setLastUpdated(new Date().toISOString());
   }
 
-  function runSearch(nextQuery: string) {
+  function runSearch(
+    nextQuery: string,
+    nextPlatform: PlatformFilterValue = platformFilter,
+  ) {
     if (searchTimeoutRef.current) {
       window.clearTimeout(searchTimeoutRef.current);
     }
@@ -140,7 +177,10 @@ export function MultiwatchApp({
     searchTimeoutRef.current = window.setTimeout(() => {
       startTransition(async () => {
         try {
-          const payload = await searchChannelsAction(trimmedQuery);
+          const payload = await searchChannelsAction(
+            trimmedQuery,
+            nextPlatform,
+          );
 
           setResults(payload.channels);
           setSeedResults((current) =>
@@ -181,6 +221,41 @@ export function MultiwatchApp({
       setActiveAudioChannelId(nextSelectedChannels[0]?.channelId ?? null);
     }
 
+    if (nextSelectedChannels.length === 0) {
+      setChatOpen(false);
+    }
+
+    replaceUrl(query, nextSelectedChannels);
+  }
+
+  // Opens a saved group or the remembered streams in place of the selection.
+  function handleOpenChannels(channelIds: string[]) {
+    if (!configured || channelIds.length === 0) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const opened = await refreshSelectedChannelsAction(channelIds);
+        setSelectedChannels(opened);
+        setActiveAudioChannelId(
+          opened.find((channel) => channel.live.status === "live")?.channelId ??
+            opened[0]?.channelId ??
+            null,
+        );
+        replaceUrl(query, opened);
+      } catch (error) {
+        console.error(error);
+      }
+    });
+  }
+
+  function handleRestoreChannels(channels: ChannelResult[]) {
+    const nextSelectedChannels = dedupeChannels([
+      ...selectedChannels,
+      ...channels,
+    ]);
+    setSelectedChannels(nextSelectedChannels);
     replaceUrl(query, nextSelectedChannels);
   }
 
@@ -188,6 +263,13 @@ export function MultiwatchApp({
     setQuery(nextQuery);
     replaceUrl(nextQuery, selectedChannels);
     runSearch(nextQuery);
+  }
+
+  function handlePlatformChange(nextPlatform: PlatformFilterValue) {
+    setPlatformFilter(nextPlatform);
+    if (query.trim()) {
+      runSearch(query, nextPlatform);
+    }
   }
 
   function handleManualRefresh() {
@@ -207,10 +289,45 @@ export function MultiwatchApp({
     });
   }
 
+  const streamSettings = useStreamSettings({
+    channels: selectedChannels,
+    activeAudioChannelId,
+    onLiveCheck: handleManualRefresh,
+    onRestoreChannels: handleRestoreChannels,
+  });
+
+  // Reopen the last streams once, unless the link already names some.
+  const { restoreChannelIds, onRestoreHandled } = streamSettings;
+  const restoreLastStreams = React.useEffectEvent((channelIds: string[]) => {
+    onRestoreHandled();
+    if (!new URLSearchParams(window.location.search).has("channels")) {
+      handleOpenChannels(channelIds);
+    }
+  });
+  React.useEffect(() => {
+    if (restoreChannelIds) {
+      restoreLastStreams(restoreChannelIds);
+    }
+  }, [restoreChannelIds]);
+
   const liveCount = selectedChannels.filter(
     (channel) => channel.live.status === "live",
   ).length;
-  const displayedResults = query.trim() ? results : seedResults;
+  // Display order only: the grid and URL keep the order channels were added,
+  // so iframes don't remount when a channel goes live.
+  // Also filtered here so stale results from another filter never flash.
+  const displayedResults = sortLiveFirst(
+    query.trim() ? results : seedResults,
+  ).filter(
+    (channel) =>
+      platformFilter === "all" || channel.platform === platformFilter,
+  );
+  const sortedSelectedChannels = sortLiveFirst(selectedChannels);
+  const selectedIds = selectedChannels.map((channel) => channel.channelId);
+  // Selected channels already have their own list above.
+  const unselectedResults = displayedResults.filter(
+    (channel) => !selectedIds.includes(channel.channelId),
+  );
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-[#050507] text-foreground">
@@ -219,6 +336,7 @@ export function MultiwatchApp({
         <Button
           variant="ghost"
           size="icon-sm"
+          className="pointer-coarse:size-11"
           onClick={() => setSidebarOpen((open) => !open)}
           aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
         >
@@ -237,14 +355,15 @@ export function MultiwatchApp({
         <div className="flex-1" />
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
             <RadioTower className="size-3.5 text-primary" />
             <span>
               <span className="font-medium text-foreground">{liveCount}</span>{" "}
               live
             </span>
-            <span className="text-border/60">/</span>
-            <span>
+            {/* Hidden on phones so the settings button fits the bar. */}
+            <span className="hidden text-border/60 sm:inline">/</span>
+            <span className="hidden sm:inline">
               <span className="font-medium text-foreground">
                 {selectedChannels.length}
               </span>{" "}
@@ -258,9 +377,16 @@ export function MultiwatchApp({
             onClick={handleManualRefresh}
             disabled={!configured || selectedChannels.length === 0 || isPending}
             aria-label="Refresh live state"
+            className="pointer-coarse:size-11"
           >
             <RefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
+
+          <SettingsPanel
+            currentChannelIds={selectedIds}
+            onOpenGroup={handleOpenChannels}
+            groupsEnabled={configured}
+          />
         </div>
       </header>
 
@@ -282,7 +408,7 @@ export function MultiwatchApp({
               variant="ghost"
               size="icon-sm"
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden"
+              className="lg:hidden pointer-coarse:size-11"
               aria-label="Close sidebar"
             >
               <X className="size-3.5" />
@@ -295,9 +421,16 @@ export function MultiwatchApp({
                 query={query}
                 results={displayedResults}
                 loading={isPending}
+                now={now}
                 disabled={!configured}
                 onQueryChange={handleQueryChange}
                 onAddChannel={handleAddChannel}
+              />
+
+              <PlatformFilter
+                platforms={platforms}
+                value={platformFilter}
+                onChange={handlePlatformChange}
               />
 
               <div className="text-[10px] text-muted-foreground/60">
@@ -307,11 +440,10 @@ export function MultiwatchApp({
               <ChannelResults
                 title="Selected"
                 description="Streams on the wall."
-                channels={selectedChannels}
-                selectedIds={selectedChannels.map(
-                  (channel) => channel.channelId,
-                )}
+                channels={sortedSelectedChannels}
+                selectedIds={selectedIds}
                 emptyMessage="Add channels to start."
+                now={now}
                 onAddChannel={handleAddChannel}
                 onRemoveChannel={handleRemoveChannel}
               />
@@ -321,11 +453,10 @@ export function MultiwatchApp({
                 description={
                   query.trim() ? "Matched channels." : "From recent searches."
                 }
-                channels={displayedResults}
-                selectedIds={selectedChannels.map(
-                  (channel) => channel.channelId,
-                )}
+                channels={unselectedResults}
+                selectedIds={selectedIds}
                 emptyMessage="Search to find channels."
+                now={now}
                 onAddChannel={handleAddChannel}
                 onRemoveChannel={handleRemoveChannel}
               />
@@ -345,10 +476,34 @@ export function MultiwatchApp({
         <main className="flex-1 overflow-y-auto">
           <LiveGrid
             channels={selectedChannels}
-            activeAudioChannelId={activeAudioChannelId}
+            activeAudioChannelId={streamSettings.audioChannelId}
+            twitchParents={twitchParents}
+            layout={streamSettings.settings.gridLayout}
+            quality={streamSettings.settings.defaultQuality}
+            audioSyncKey={streamSettings.audioSyncKey}
+            onFocusAudio={streamSettings.onFocusAudio}
+            fullscreenChannelId={streamSettings.fullscreenChannelId}
+            saverSettings={streamSettings.settings}
           />
         </main>
+
+        <LiveChatPanel
+          open={chatOpen && selectedChannels.length > 0}
+          channels={selectedChannels}
+          twitchParents={twitchParents}
+          onClose={() => setChatOpen(false)}
+        />
       </div>
+
+      <RemovedStreamsToast
+        toast={streamSettings.removedToast}
+        onUndo={streamSettings.undoRemove}
+        onDismiss={streamSettings.dismissRemovedToast}
+      />
+
+      {selectedChannels.length > 0 && !chatOpen ? (
+        <ChatToggleButton onClick={() => setChatOpen(true)} />
+      ) : null}
     </div>
   );
 }

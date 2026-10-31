@@ -1,12 +1,15 @@
+import { headers } from "next/headers"
 import { Suspense } from "react"
 
 import { MultiwatchApp } from "@/components/multiwatch-app"
 import {
+  configuredPlatforms,
   getSearchResults,
   getSeedResults,
   getSelectedChannels,
   projectConfigured,
 } from "@/lib/search-service"
+import { twitchParentHosts } from "@/lib/twitch-embed"
 
 type PageProps = {
   searchParams: Promise<{
@@ -31,8 +34,17 @@ export function PageFallback() {
 }
 
 export async function PageContent({ searchParams }: PageProps) {
-  const resolvedSearchParams = await searchParams
+  const [resolvedSearchParams, requestHeaders] = await Promise.all([searchParams, headers()])
   const configured = projectConfigured()
+  // The request host covers localhost, previews and custom domains; the
+  // Vercel URLs cover requests that reach us through another alias.
+  const twitchParents = twitchParentHosts([
+    requestHeaders.get("x-forwarded-host"),
+    requestHeaders.get("host"),
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ])
   const query =
     typeof resolvedSearchParams.q === "string" ? resolvedSearchParams.q : ""
   const channelIds =
@@ -60,6 +72,8 @@ export async function PageContent({ searchParams }: PageProps) {
       initialSelectedChannels={selectedChannels}
       initialUpdatedAt={new Date().toISOString()}
       configured={configured}
+      platforms={configured ? configuredPlatforms() : []}
+      twitchParents={twitchParents}
     />
   )
 }

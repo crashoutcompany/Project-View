@@ -125,6 +125,7 @@ export async function searchChannels(query: string, maxResults = 5) {
       }
 
       return {
+        platform: "youtube",
         channelId,
         title,
         description: item.snippet?.description?.trim() ?? "",
@@ -155,6 +156,7 @@ export async function getChannelsByIds(channelIds: string[]) {
       }
 
       return {
+        platform: "youtube",
         channelId,
         title,
         description: item.snippet?.description?.trim() ?? "",
@@ -164,6 +166,8 @@ export async function getChannelsByIds(channelIds: string[]) {
     .filter((channel): channel is BaseChannel => Boolean(channel));
 }
 
+// One search.list call per channel, so the live check costs no extra quota.
+// startedAt comes from the same response.
 export async function getLiveVideoForChannel(
   channelId: string,
 ): Promise<LiveStatus> {
