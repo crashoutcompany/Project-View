@@ -418,4 +418,41 @@ describe("MultiwatchApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add first result" }))
     expect(screen.getByRole("button", { name: "Open chat" })).toBeInTheDocument()
   })
+
+  it("hides the fullscreen button where the browser can't fullscreen an element", () => {
+    renderApp({ initialSelectedChannels: [makeChannel()] })
+
+    expect(screen.queryByRole("button", { name: "Fullscreen streams" })).not.toBeInTheDocument()
+  })
+
+  it("fullscreens only the streams area, leaving the header and sidebar out", () => {
+    Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true })
+    const requestFullscreen = vi.fn(function (this: HTMLElement) {
+      return Promise.resolve()
+    })
+    Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreen,
+    })
+
+    try {
+      renderApp()
+
+      const button = screen.getByRole("button", { name: "Fullscreen streams" })
+      expect(button).toBeDisabled()
+
+      fireEvent.click(screen.getByRole("button", { name: "Add first result" }))
+      fireEvent.click(button)
+
+      expect(requestFullscreen).toHaveBeenCalledTimes(1)
+      const element = requestFullscreen.mock.contexts[0] as HTMLElement
+      expect(element.tagName).toBe("MAIN")
+      expect(element).toContainElement(screen.getByTestId("live-grid"))
+      expect(element).not.toContainElement(screen.getByRole("banner"))
+      expect(element).not.toContainElement(screen.getByRole("region", { name: "Selected" }))
+    } finally {
+      delete (document as { fullscreenEnabled?: boolean }).fullscreenEnabled
+      delete (HTMLElement.prototype as { requestFullscreen?: unknown }).requestFullscreen
+    }
+  })
 })
