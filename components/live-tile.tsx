@@ -33,6 +33,8 @@ type LiveTileProps = {
   onFocusAudio?: (channelId: string) => void
   // Set while another stream is fullscreen and a resource saver applies.
   saverAction?: SaverAction | null
+  // The stream the keyboard shortcuts act on, marked with a ring.
+  focused?: boolean
   className?: string
   style?: React.CSSProperties
 }
@@ -92,6 +94,7 @@ export function LiveTile({
   audioSyncKey,
   onFocusAudio,
   saverAction = null,
+  focused = false,
   className,
   style,
 }: LiveTileProps) {
@@ -196,6 +199,8 @@ export function LiveTile({
       className={cn("group relative flex flex-col bg-black", className)}
       style={style}
       data-channel-id={channel.channelId}
+      data-tile=""
+      data-focused={focused || undefined}
     >
       {/* Video area fills all space */}
       <div className="flex-1">
@@ -241,6 +246,12 @@ export function LiveTile({
         showLabel
         className="pointer-events-none absolute top-2 left-2 transition-opacity duration-150 ease-out group-hover:opacity-0"
       />
+      {focused ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 ring-2 ring-primary/70 ring-inset"
+        />
+      ) : null}
       {focusAudio && src ? (
         <button
           type="button"

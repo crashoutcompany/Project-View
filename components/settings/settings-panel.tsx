@@ -4,6 +4,7 @@ import * as React from "react"
 import { Check, FolderOpen, Pencil, RotateCcw, Settings2, Trash2, X } from "lucide-react"
 import { Dialog, RadioGroup, Switch } from "radix-ui"
 
+import { Kbd } from "@/components/keyboard-shortcuts-dialog"
 import { Button } from "@/components/ui/button"
 import {
   addGroup,
@@ -449,6 +450,12 @@ export function SettingsPanel({
                   setOpen(false)
                 }}
               />
+            </Section>
+
+            <Section title="Keyboard">
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Press <Kbd>?</Kbd> for shortcuts.
+              </p>
             </Section>
 
             <Section title="Reset">
