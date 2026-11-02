@@ -425,6 +425,18 @@ describe("MultiwatchApp", () => {
     expect(screen.queryByRole("button", { name: "Fullscreen streams" })).not.toBeInTheDocument()
   })
 
+  it("hides the fullscreen button when the browser reports fullscreen as disabled", () => {
+    Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: false })
+
+    try {
+      renderApp({ initialSelectedChannels: [makeChannel()] })
+
+      expect(screen.queryByRole("button", { name: "Fullscreen streams" })).not.toBeInTheDocument()
+    } finally {
+      delete (document as { fullscreenEnabled?: boolean }).fullscreenEnabled
+    }
+  })
+
   it("fullscreens only the streams area, leaving the header and sidebar out", () => {
     Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true })
     const requestFullscreen = vi.fn(function (this: HTMLElement) {
