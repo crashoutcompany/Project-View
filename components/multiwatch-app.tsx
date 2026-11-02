@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  Maximize,
   PanelLeftClose,
   PanelLeftOpen,
   RadioTower,
@@ -53,6 +54,20 @@ function dedupeChannels(channels: ChannelResult[]) {
 function mergeChannel(target: ChannelResult[], incoming: ChannelResult) {
   return target.map((channel) =>
     channel.channelId === incoming.channelId ? incoming : channel,
+  );
+}
+
+function subscribeNothing() {
+  return () => {};
+}
+
+// False on the server and in browsers without element fullscreen (iPhone
+// Safari), so the button only shows where it works.
+function useFullscreenSupported() {
+  return React.useSyncExternalStore(
+    subscribeNothing,
+    () => document.fullscreenEnabled === true,
+    () => false,
   );
 }
 
@@ -118,6 +133,8 @@ export function MultiwatchApp({
   // mismatch, then ticks once a minute.
   const [now, setNow] = React.useState(() => Date.parse(initialUpdatedAt));
   const searchTimeoutRef = React.useRef<number | null>(null);
+  const streamsRef = React.useRef<HTMLElement>(null);
+  const fullscreenSupported = useFullscreenSupported();
 
   React.useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -272,6 +289,14 @@ export function MultiwatchApp({
     }
   }
 
+  // Only the streams area goes fullscreen, so the header, sidebar and chat
+  // stay hidden until the viewer exits (Esc or the browser's own control).
+  function handleEnterFullscreen() {
+    streamsRef.current?.requestFullscreen().catch((error) => {
+      console.error(error);
+    });
+  }
+
   function handleManualRefresh() {
     if (!configured || selectedChannels.length === 0) {
       return;
@@ -382,6 +407,20 @@ export function MultiwatchApp({
             <RefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
 
+          {fullscreenSupported ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleEnterFullscreen}
+              disabled={selectedChannels.length === 0}
+              aria-label="Fullscreen streams"
+              title="Fullscreen streams (Esc to exit)"
+              className="pointer-coarse:size-11"
+            >
+              <Maximize />
+            </Button>
+          ) : null}
+
           <SettingsPanel
             currentChannelIds={selectedIds}
             onOpenGroup={handleOpenChannels}
@@ -473,7 +512,10 @@ export function MultiwatchApp({
         ) : null}
 
         {/* Streams area - fills all remaining space */}
-        <main className="flex-1 overflow-y-auto">
+        <main
+          ref={streamsRef}
+          className="flex-1 overflow-y-auto bg-[#050507]"
+        >
           <LiveGrid
             channels={selectedChannels}
             activeAudioChannelId={streamSettings.audioChannelId}
