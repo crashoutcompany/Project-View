@@ -15,6 +15,7 @@ import {
   renameGroup,
   SavedGroup,
   Settings,
+  StreamFit,
   StreamQuality,
 } from "@/lib/settings"
 import { resetSettings, updateSettings, useSettings } from "@/lib/use-settings"
@@ -40,6 +41,11 @@ const LAYOUT_OPTIONS: { value: GridLayout; label: string }[] = [
   { value: "one-column", label: "1 column" },
   { value: "two-columns", label: "2 columns" },
   { value: "featured", label: "Big + small" },
+]
+
+const FIT_OPTIONS: { value: StreamFit; label: string }[] = [
+  { value: "fit", label: "Fit" },
+  { value: "fill", label: "Fill" },
 ]
 
 type BooleanKey = {
@@ -112,7 +118,10 @@ function Segmented<T extends string>({
       aria-label={label}
       value={value}
       onValueChange={(next) => onChange(next as T)}
-      className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4"
+      className={cn(
+        "grid grid-cols-2 gap-px border border-border bg-border",
+        options.length > 2 && "sm:grid-cols-4"
+      )}
     >
       {options.map((option) => (
         <RadioGroup.Item
@@ -444,6 +453,17 @@ export function SettingsPanel({
                 options={LAYOUT_OPTIONS}
                 onChange={(value) => setSetting("gridLayout", value)}
               />
+              <Segmented
+                label="Stream fit"
+                value={settings.streamFit}
+                options={FIT_OPTIONS}
+                onChange={(value) => setSetting("streamFit", value)}
+              />
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Fit shows the whole picture and packs the streams together, so spare space
+                collects at the edges. Fill crops the sides or top of each stream to cover
+                its tile.
+              </p>
             </Section>
 
             <Section title="Saved groups">

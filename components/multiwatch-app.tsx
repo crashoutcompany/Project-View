@@ -680,6 +680,7 @@ export function MultiwatchApp({
             twitchParents={twitchParents}
             layout={streamSettings.settings.gridLayout}
             quality={streamSettings.settings.defaultQuality}
+            fit={streamSettings.settings.streamFit}
             audioSyncKey={streamSettings.audioSyncKey}
             onFocusAudio={streamSettings.onFocusAudio}
             fullscreenChannelId={streamSettings.fullscreenChannelId}

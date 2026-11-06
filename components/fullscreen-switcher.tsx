@@ -41,8 +41,9 @@ export function FullscreenSwitcher({ channels, channelId, onStep }: FullscreenSw
     <div className="pointer-events-none fixed inset-0 z-20">
       <p
         aria-live="polite"
+        // Below the tile's header strip.
         className={cn(
-          "absolute top-3 left-1/2 max-w-[calc(100%-8rem)] -translate-x-1/2 truncate bg-black/60 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm transition-opacity duration-300 ease-out",
+          "absolute top-11 left-1/2 max-w-[calc(100%-8rem)] -translate-x-1/2 truncate bg-black/60 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm transition-opacity duration-300 ease-out",
           labelHiddenFor === channelId && "opacity-0"
         )}
       >

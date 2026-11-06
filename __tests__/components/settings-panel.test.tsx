@@ -50,6 +50,7 @@ describe("SettingsPanel", () => {
     fireEvent.click(within(dialog).getByRole("switch", { name: "Stream switcher in full screen" }))
     fireEvent.click(within(dialog).getByRole("radio", { name: "Low" }))
     fireEvent.click(within(dialog).getByRole("radio", { name: "Big + small" }))
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Fill" }))
 
     expect(stored()).toMatchObject({
       version: 1,
@@ -58,6 +59,7 @@ describe("SettingsPanel", () => {
       fullscreenSwitcher: false,
       defaultQuality: "low",
       gridLayout: "featured",
+      streamFit: "fill",
     })
   })
 

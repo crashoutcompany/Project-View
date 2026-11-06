@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 
 import { LiveGrid } from "@/components/live-grid"
 import { LiveTile } from "@/components/live-tile"
@@ -45,6 +45,47 @@ describe("LiveGrid", () => {
 
     expect(container.firstChild).toHaveClass("2xl:grid-cols-4")
     expect(screen.getAllByText("Offline")).toHaveLength(7)
+  })
+
+  it("packs 16:9 tiles to the measured size in fit, and keeps the CSS grid in fill", () => {
+    let resize: ResizeObserverCallback = () => {}
+    const originalResizeObserver = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        resize = callback
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+
+    try {
+      const channels = ["a", "b", "c", "d"].map((id) => makeChannel({ channelId: id }))
+      const props = { channels, activeAudioChannelId: null, twitchParents: ["localhost"] }
+      const { container, rerender } = render(<LiveGrid {...props} />)
+      const grid = container.firstChild as HTMLElement
+      expect(grid).not.toHaveAttribute("data-packed")
+
+      act(() => {
+        resize(
+          [{ contentRect: { width: 1720, height: 1081 } } as ResizeObserverEntry],
+          {} as ResizeObserver
+        )
+      })
+
+      expect(grid).toHaveAttribute("data-packed")
+      expect(grid.style.gridTemplateColumns).toBe("repeat(2, 859px)")
+      expect(grid.style.gridAutoRows).toBe("515px")
+
+      rerender(<LiveGrid {...props} fit="fill" />)
+      expect(grid).not.toHaveAttribute("data-packed")
+      expect(grid).toHaveClass("auto-rows-fr")
+
+      rerender(<LiveGrid {...props} layout="two-columns" />)
+      expect(grid).not.toHaveAttribute("data-packed")
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver
+    }
   })
 
   it("lays the spotlit stream over the screen and makes the rest inert, without remounting", () => {
@@ -142,8 +183,46 @@ describe("LiveTile", () => {
 
     expect(screen.getByText("Channel One")).toBeInTheDocument()
     expect(screen.getByText("Offline")).toBeInTheDocument()
-    expect(screen.getByText("CO")).toBeInTheDocument()
+    expect(screen.getAllByText("CO")).toHaveLength(2)
     expect(screen.queryByTitle("Channel One live stream")).not.toBeInTheDocument()
+  })
+
+  it("shows the streamer, stream title and platform in a header above the player", () => {
+    render(
+      <LiveTile
+        channel={makeChannel({
+          platform: "twitch",
+          login: "one",
+          live: { status: "live", checkedAt: "x", title: "Ranked grind" },
+        })}
+        activeAudio={false}
+        twitchParents={["localhost"]}
+      />
+    )
+
+    const tile = screen.getByTitle("Channel One live stream").closest("[data-tile]")!
+    const header = tile.firstElementChild as HTMLElement
+    expect(header).toHaveTextContent("Channel One")
+    expect(header).toHaveTextContent("Ranked grind")
+    expect(header).toHaveTextContent("Twitch")
+    expect(header).toHaveClass("h-8")
+  })
+
+  it("letterboxes the player in fit and crops it to cover in fill", () => {
+    const channel = makeChannel({
+      live: { status: "live", checkedAt: "x", videoId: "video-1" },
+    })
+    const { rerender } = render(
+      <LiveTile channel={channel} activeAudio={false} twitchParents={["localhost"]} />
+    )
+    const frame = screen.getByTitle("Channel One live stream")
+    expect(frame).toHaveClass("size-full")
+
+    rerender(
+      <LiveTile channel={channel} activeAudio={false} twitchParents={["localhost"]} fit="fill" />
+    )
+    expect(screen.getByTitle("Channel One live stream")).toBe(frame)
+    expect(frame).toHaveClass("absolute", "w-[max(100cqw,calc(100cqh*16/9))]")
   })
 
   it("labels an unknown live state instead of calling it offline", () => {
