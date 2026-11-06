@@ -35,6 +35,9 @@ type LiveTileProps = {
   saverAction?: SaverAction | null
   // The stream the keyboard shortcuts act on, marked with a ring.
   focused?: boolean
+  // Hidden under a spotlit stream in fullscreen: still playing, but out of
+  // reach for the pointer, Tab and screen readers.
+  covered?: boolean
   className?: string
   style?: React.CSSProperties
 }
@@ -95,6 +98,7 @@ export function LiveTile({
   onFocusAudio,
   saverAction = null,
   focused = false,
+  covered = false,
   className,
   style,
 }: LiveTileProps) {
@@ -201,6 +205,8 @@ export function LiveTile({
       data-channel-id={channel.channelId}
       data-tile=""
       data-focused={focused || undefined}
+      inert={covered || undefined}
+      aria-hidden={covered || undefined}
     >
       {/* Video area fills all space */}
       <div className="flex-1">

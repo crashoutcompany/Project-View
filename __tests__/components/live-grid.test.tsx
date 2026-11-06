@@ -46,6 +46,31 @@ describe("LiveGrid", () => {
     expect(container.firstChild).toHaveClass("2xl:grid-cols-4")
     expect(screen.getAllByText("Offline")).toHaveLength(7)
   })
+
+  it("lays the spotlit stream over the screen and makes the rest inert, without remounting", () => {
+    const channels = ["a", "b", "c"].map((id) =>
+      makeChannel({
+        channelId: id,
+        title: `Channel ${id}`,
+        live: { status: "live", checkedAt: "x", videoId: `v-${id}` },
+      })
+    )
+    const props = { channels, activeAudioChannelId: "a", twitchParents: ["localhost"] }
+    const { container, rerender } = render(<LiveGrid {...props} focusedChannelId="b" />)
+    const frame = screen.getByTitle("Channel b live stream")
+
+    rerender(<LiveGrid {...props} focusedChannelId="b" spotlightChannelId="b" />)
+
+    const tile = (id: string) =>
+      container.querySelector<HTMLElement>(`[data-tile][data-channel-id="${id}"]`)!
+    expect(tile("b")).toHaveClass("fixed", "inset-0")
+    expect(tile("b")).not.toHaveAttribute("inert")
+    expect(tile("a")).toHaveAttribute("inert")
+    expect(tile("c")).toHaveAttribute("aria-hidden", "true")
+    // No focus ring while a single stream fills the screen.
+    expect(tile("b")).not.toHaveAttribute("data-focused")
+    expect(screen.getByTitle("Channel b live stream")).toBe(frame)
+  })
 })
 
 describe("LiveTile", () => {

@@ -34,6 +34,7 @@ describe("settings store", () => {
       muteOthersOnFullscreen: false,
       saveResourcesOnFullscreen: false,
       pauseOthersOnFullscreen: true,
+      fullscreenSwitcher: false,
       defaultQuality: "low" as const,
       gridLayout: "featured" as const,
       rememberLastStreams: true,
@@ -60,6 +61,8 @@ describe("settings store", () => {
     expect(migrated.gridLayout).toBe("two-columns")
     expect(migrated.saveResourcesOnFullscreen).toBe(true)
     expect(migrated.pauseOthersOnFullscreen).toBe(false)
+    // Stored before the switcher setting existed.
+    expect(migrated.fullscreenSwitcher).toBe(true)
   })
 
   it("migrates an unversioned (pre-v1) value and ignores unknown versions", () => {

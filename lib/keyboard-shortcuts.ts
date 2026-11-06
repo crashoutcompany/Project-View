@@ -4,6 +4,7 @@
 
 export type Shortcut =
   | { type: "focus"; index: number }
+  | { type: "step"; delta: 1 | -1 }
   | { type: "mute" }
   | { type: "fullscreen" }
   | { type: "help" }
@@ -20,6 +21,16 @@ const TYPING_SELECTOR = [
   '[role="textbox"]',
   "[cmdk-root]",
   `[${SHORTCUTS_IGNORE_ATTRIBUTE}]`,
+].join(",")
+
+// Widgets that move their own selection with the arrow keys.
+const ARROW_WIDGET_SELECTOR = [
+  '[role="dialog"]',
+  '[role="radiogroup"]',
+  '[role="tablist"]',
+  '[role="listbox"]',
+  '[role="menu"]',
+  '[role="slider"]',
 ].join(",")
 
 /** True when keys typed at this element are text or belong to a widget. */
@@ -62,6 +73,13 @@ export function shortcutForKey(event: ShortcutKeyEvent): Shortcut | null {
     return { type: "focus", index: Number(event.key) - 1 }
   }
 
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    if (event.target instanceof Element && event.target.closest(ARROW_WIDGET_SELECTOR)) {
+      return null
+    }
+    return { type: "step", delta: event.key === "ArrowRight" ? 1 : -1 }
+  }
+
   switch (event.key.toLowerCase()) {
     case "m":
       return { type: "mute" }
@@ -73,9 +91,10 @@ export function shortcutForKey(event: ShortcutKeyEvent): Shortcut | null {
 }
 
 export const SHORTCUT_LIST: { keys: string[]; label: string }[] = [
-  { keys: ["1", "–", "9"], label: "Focus stream 1 to 9" },
+  { keys: ["1", "–", "9"], label: "Focus stream 1 to 9, or switch to it in fullscreen" },
+  { keys: ["←", "→"], label: "Previous or next stream" },
   { keys: ["M"], label: "Mute or unmute the focused stream" },
-  { keys: ["F"], label: "Fullscreen the focused stream, or exit fullscreen" },
+  { keys: ["F"], label: "Fullscreen the focused stream, or go back" },
   { keys: ["?"], label: "Show or hide this help" },
   { keys: ["Esc"], label: "Close this help or exit fullscreen" },
 ]

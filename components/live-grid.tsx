@@ -19,6 +19,8 @@ type LiveGridProps = {
   fullscreenChannelId?: string | null;
   // The stream the keyboard shortcuts act on.
   focusedChannelId?: string | null;
+  // The stream shown alone over the fullscreen wall.
+  spotlightChannelId?: string | null;
   saverSettings?: Pick<Settings, "saveResourcesOnFullscreen" | "pauseOthersOnFullscreen">;
 };
 
@@ -35,7 +37,6 @@ function getGridClass(count: number, layout: GridLayout) {
     return "auto-rows-[minmax(min(40svh,12rem),1fr)] md:grid-cols-[3fr_1fr] md:auto-rows-fr";
   }
   if (count === 2) return "md:grid-cols-2";
-  if (count === 2) return "md:grid-cols-2";
   if (count <= 4) return "md:grid-cols-2";
   if (count <= 6) return "md:grid-cols-2 xl:grid-cols-3";
   return "md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
@@ -51,6 +52,7 @@ export function LiveGrid({
   onFocusAudio,
   fullscreenChannelId = null,
   focusedChannelId = null,
+  spotlightChannelId = null,
   saverSettings = SAVER_OFF,
 }: LiveGridProps) {
   if (channels.length === 0) {
@@ -90,8 +92,16 @@ export function LiveGrid({
           quality={quality}
           audioSyncKey={audioSyncKey}
           onFocusAudio={onFocusAudio}
-          // A ring only helps tell streams apart when there is more than one.
-          focused={channels.length > 1 && focusedChannelId === channel.channelId}
+          // A ring only helps tell streams apart when there is more than one,
+          // and not while a single stream fills the screen.
+          focused={
+            channels.length > 1 &&
+            !spotlightChannelId &&
+            focusedChannelId === channel.channelId
+          }
+          covered={
+            spotlightChannelId !== null && spotlightChannelId !== channel.channelId
+          }
           saverAction={fullscreenSaverAction({
             channelId: channel.channelId,
             platform: channel.platform,
@@ -101,13 +111,16 @@ export function LiveGrid({
           // One big plus small: the first stream spans the left column and
           // the rest stack on the right. Placement is by CSS, not DOM order,
           // so no iframe remounts.
-          className={
+          // The spotlit tile covers the screen in place rather than moving
+          // in the DOM, so no player reloads when the spotlight switches.
+          className={cn(
             layout === "featured" && channels.length > 1
               ? index === 0
                 ? "md:col-start-1 md:row-start-1 md:[grid-row-end:span_var(--featured-span)]"
                 : "md:col-start-2"
-              : undefined
-          }
+              : undefined,
+            spotlightChannelId === channel.channelId && "fixed inset-0 z-10",
+          )}
           style={
             layout === "featured" && index === 0
               ? ({ "--featured-span": Math.max(channels.length - 1, 1) } as React.CSSProperties)

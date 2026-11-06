@@ -405,6 +405,11 @@ export function SettingsPanel({
                 label="Pause others in full screen"
                 description="Every other stream pauses instead, with no quality change. Only streams paused here resume."
               />
+              <ToggleRow
+                settingKey="fullscreenSwitcher"
+                label="Stream switcher in full screen"
+                description="Arrows and the stream name show over a full screen stream. Number keys and ← → switch streams either way."
+              />
             </Section>
 
             <Section title="Streams">

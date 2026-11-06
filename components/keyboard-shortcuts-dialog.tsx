@@ -10,6 +10,8 @@ import { SHORTCUT_LIST } from "@/lib/keyboard-shortcuts"
 type KeyboardShortcutsDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  // Where the dialog renders; defaults to the body.
+  container?: HTMLElement | null
 }
 
 export function Kbd({ children }: { children: React.ReactNode }) {
@@ -20,10 +22,14 @@ export function Kbd({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcutsDialogProps) {
+export function KeyboardShortcutsDialog({
+  open,
+  onOpenChange,
+  container,
+}: KeyboardShortcutsDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
+      <Dialog.Portal container={container ?? undefined}>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content className="fixed top-1/2 left-1/2 z-50 flex w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col border border-border bg-background text-foreground shadow-xl outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0">
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/50 pr-2 pl-4">

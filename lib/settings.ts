@@ -27,6 +27,8 @@ export type Settings = {
   muteOthersOnFullscreen: boolean
   saveResourcesOnFullscreen: boolean
   pauseOthersOnFullscreen: boolean
+  // On-screen arrows and the stream name over a single fullscreen stream.
+  fullscreenSwitcher: boolean
   autoRemoveOffline: boolean
   audioFollowsFocus: boolean
   defaultQuality: StreamQuality
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   muteOthersOnFullscreen: true,
   saveResourcesOnFullscreen: true,
   pauseOthersOnFullscreen: false,
+  fullscreenSwitcher: true,
   autoRemoveOffline: false,
   audioFollowsFocus: false,
   defaultQuality: "auto",
@@ -135,6 +138,7 @@ export function migrateSettings(raw: unknown): Settings {
       raw.pauseOthersOnFullscreen,
       DEFAULT_SETTINGS.pauseOthersOnFullscreen
     ),
+    fullscreenSwitcher: readBoolean(raw.fullscreenSwitcher, DEFAULT_SETTINGS.fullscreenSwitcher),
     autoRemoveOffline: readBoolean(raw.autoRemoveOffline, DEFAULT_SETTINGS.autoRemoveOffline),
     audioFollowsFocus: readBoolean(raw.audioFollowsFocus, DEFAULT_SETTINGS.audioFollowsFocus),
     defaultQuality: readEnum(raw.defaultQuality, STREAM_QUALITIES, DEFAULT_SETTINGS.defaultQuality),

@@ -33,6 +33,9 @@ describe("SettingsPanel", () => {
 
     expect(within(dialog).getByRole("switch", { name: "Mute others in fullscreen" })).toBeChecked()
     expect(within(dialog).getByRole("switch", { name: "Audio follows focus" })).not.toBeChecked()
+    expect(
+      within(dialog).getByRole("switch", { name: "Stream switcher in full screen" })
+    ).toBeChecked()
     const quality = within(dialog).getByRole("radiogroup", { name: "Default stream quality" })
     const layout = within(dialog).getByRole("radiogroup", { name: "Default grid layout" })
     expect(within(quality).getByRole("radio", { name: "Auto" })).toBeChecked()
@@ -44,6 +47,7 @@ describe("SettingsPanel", () => {
 
     fireEvent.click(within(dialog).getByRole("switch", { name: "Audio follows focus" }))
     fireEvent.click(within(dialog).getByRole("switch", { name: "Remove streams that go offline" }))
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Stream switcher in full screen" }))
     fireEvent.click(within(dialog).getByRole("radio", { name: "Low" }))
     fireEvent.click(within(dialog).getByRole("radio", { name: "Big + small" }))
 
@@ -51,6 +55,7 @@ describe("SettingsPanel", () => {
       version: 1,
       audioFollowsFocus: true,
       autoRemoveOffline: true,
+      fullscreenSwitcher: false,
       defaultQuality: "low",
       gridLayout: "featured",
     })

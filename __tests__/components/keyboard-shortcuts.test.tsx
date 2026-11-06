@@ -23,12 +23,18 @@ vi.doMock("@/components/live-grid", () => ({
     channels,
     activeAudioChannelId,
     focusedChannelId,
+    spotlightChannelId,
   }: {
     channels: ChannelResult[]
     activeAudioChannelId: string | null
     focusedChannelId: string | null
+    spotlightChannelId: string | null
   }) => (
-    <div data-testid="live-grid" data-audio={activeAudioChannelId ?? ""}>
+    <div
+      data-testid="live-grid"
+      data-audio={activeAudioChannelId ?? ""}
+      data-spotlight={spotlightChannelId ?? ""}
+    >
       {channels.map((channel) => (
         <div
           key={channel.channelId}
@@ -94,6 +100,41 @@ function focused() {
   return document.querySelector<HTMLElement>("[data-focused]")?.dataset.channelId ?? null
 }
 
+function spotlight() {
+  return screen.getByTestId("live-grid").dataset.spotlight
+}
+
+function wall() {
+  return screen.getByTestId("live-grid").closest("main")!
+}
+
+// Stubs the Fullscreen API. The browser fires fullscreenchange once a request
+// settles, so `setFullscreenElement` does the same.
+function stubFullscreen() {
+  Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true })
+  let element: Element | null = null
+  Object.defineProperty(document, "fullscreenElement", {
+    configurable: true,
+    get: () => element,
+  })
+  const requestFullscreen = vi.fn(() => Promise.resolve())
+  Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
+    configurable: true,
+    value: requestFullscreen,
+  })
+  const exitFullscreen = vi.fn(() => Promise.resolve())
+  Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exitFullscreen })
+
+  function setFullscreenElement(next: Element | null) {
+    element = next
+    act(() => {
+      document.dispatchEvent(new Event("fullscreenchange"))
+    })
+  }
+
+  return { requestFullscreen, exitFullscreen, setFullscreenElement }
+}
+
 describe("keyboard shortcuts", () => {
   beforeEach(() => {
     window.localStorage.clear()
@@ -153,31 +194,157 @@ describe("keyboard shortcuts", () => {
     expect(audio()).toBe("")
   })
 
-  it("fullscreens the focused stream's tile with F, and exits with F again", () => {
-    Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true })
-    const requestFullscreen = vi.fn(() => Promise.resolve())
-    Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
-      configurable: true,
-      value: requestFullscreen,
-    })
-    const exitFullscreen = vi.fn(() => Promise.resolve())
-    Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exitFullscreen })
+  it("fullscreens the focused stream with F as a spotlight on the wall, and exits with F again", () => {
+    const { requestFullscreen, exitFullscreen, setFullscreenElement } = stubFullscreen()
 
     renderApp()
     press("2")
     press("f")
 
+    // The wall goes fullscreen, never a tile, so switching needs no new request.
     expect(requestFullscreen).toHaveBeenCalledTimes(1)
-    expect(requestFullscreen.mock.contexts[0]).toBe(screen.getByTestId("tile-b"))
+    expect(requestFullscreen.mock.contexts[0]).toBe(wall())
+    setFullscreenElement(wall())
+    expect(spotlight()).toBe("b")
 
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      value: screen.getByTestId("tile-b"),
-    })
     press("F")
 
     expect(exitFullscreen).toHaveBeenCalledTimes(1)
     expect(requestFullscreen).toHaveBeenCalledTimes(1)
+  })
+
+  it("switches the fullscreen stream with numbers and arrows, wrapping at the ends", () => {
+    const { requestFullscreen, setFullscreenElement } = stubFullscreen()
+
+    renderApp()
+    press("f")
+    setFullscreenElement(wall())
+    expect(spotlight()).toBe("a")
+    // Mute others in fullscreen is on by default, so the audio follows.
+    expect(audio()).toBe("a")
+
+    press("3")
+    expect(spotlight()).toBe("c")
+    expect(audio()).toBe("c")
+
+    press("ArrowRight")
+    expect(spotlight()).toBe("a")
+    press("ArrowLeft")
+    expect(spotlight()).toBe("c")
+    press("ArrowLeft")
+    expect(spotlight()).toBe("b")
+
+    expect(requestFullscreen).toHaveBeenCalledTimes(1)
+  })
+
+  it("spotlights a stream on the fullscreen wall with F, and goes back to the wall with F", () => {
+    const { requestFullscreen, exitFullscreen, setFullscreenElement } = stubFullscreen()
+
+    renderApp()
+    fireEvent.click(screen.getByRole("button", { name: "Fullscreen streams" }))
+    setFullscreenElement(wall())
+    expect(spotlight()).toBe("")
+
+    // On the wall, numbers only move the focus.
+    press("2")
+    expect(spotlight()).toBe("")
+    expect(focused()).toBe("b")
+
+    press("f")
+    expect(spotlight()).toBe("b")
+    press("ArrowRight")
+    expect(spotlight()).toBe("c")
+
+    press("f")
+    expect(spotlight()).toBe("")
+    expect(focused()).toBe("c")
+    expect(exitFullscreen).not.toHaveBeenCalled()
+    expect(requestFullscreen).toHaveBeenCalledTimes(1)
+  })
+
+  it("ends the spotlight when the browser leaves fullscreen, e.g. on Esc", () => {
+    const { setFullscreenElement } = stubFullscreen()
+
+    renderApp()
+    press("f")
+    setFullscreenElement(wall())
+    expect(spotlight()).toBe("a")
+
+    setFullscreenElement(null)
+    expect(spotlight()).toBe("")
+    expect(screen.queryByRole("button", { name: "Next stream" })).not.toBeInTheDocument()
+  })
+
+  it("keeps the spotlight under a player's own fullscreen", () => {
+    const { setFullscreenElement } = stubFullscreen()
+
+    renderApp()
+    press("f")
+    setFullscreenElement(wall())
+    setFullscreenElement(screen.getByTestId("tile-a"))
+    setFullscreenElement(wall())
+
+    expect(spotlight()).toBe("a")
+  })
+
+  it("drops the spotlight when the fullscreen request fails", async () => {
+    const { requestFullscreen } = stubFullscreen()
+    requestFullscreen.mockImplementationOnce(() => Promise.reject(new Error("denied")))
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    try {
+      renderApp()
+      press("f")
+      await act(async () => {})
+
+      expect(consoleError).toHaveBeenCalled()
+      // A later wall fullscreen from the button starts without a spotlight.
+      fireEvent.click(screen.getByRole("button", { name: "Fullscreen streams" }))
+      expect(spotlight()).toBe("")
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
+  it("shows switcher arrows over a fullscreen stream unless the setting is off", () => {
+    const { setFullscreenElement } = stubFullscreen()
+
+    renderApp()
+    press("f")
+    setFullscreenElement(wall())
+
+    expect(screen.getByText("1 / 3").closest("p")).toHaveTextContent("1 / 3 · Channel a")
+    fireEvent.click(screen.getByRole("button", { name: "Next stream" }))
+    expect(spotlight()).toBe("b")
+    fireEvent.click(screen.getByRole("button", { name: "Previous stream" }))
+    expect(spotlight()).toBe("a")
+
+    act(() => store({ fullscreenSwitcher: false }))
+    expect(screen.queryByRole("button", { name: "Next stream" })).not.toBeInTheDocument()
+    // The keys still switch.
+    press("ArrowRight")
+    expect(spotlight()).toBe("b")
+  })
+
+  it("renders the help inside the wall while it is fullscreen", () => {
+    const { setFullscreenElement } = stubFullscreen()
+
+    renderApp()
+    fireEvent.click(screen.getByRole("button", { name: "Fullscreen streams" }))
+    setFullscreenElement(wall())
+    press("?")
+
+    expect(wall()).toContainElement(screen.getByRole("dialog", { name: "Keyboard shortcuts" }))
+  })
+
+  it("moves the focus with the arrow keys outside fullscreen", () => {
+    renderApp()
+
+    press("ArrowRight")
+    expect(focused()).toBe("b")
+    press("ArrowLeft")
+    press("ArrowLeft")
+    expect(focused()).toBe("c")
   })
 
   it("does nothing on F where the browser can't fullscreen an element", () => {
