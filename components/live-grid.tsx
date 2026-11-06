@@ -17,6 +17,8 @@ type LiveGridProps = {
   onFocusAudio?: (channelId: string) => void;
   // The stream whose player is fullscreen, if it is one of these.
   fullscreenChannelId?: string | null;
+  // The stream the keyboard shortcuts act on.
+  focusedChannelId?: string | null;
   saverSettings?: Pick<Settings, "saveResourcesOnFullscreen" | "pauseOthersOnFullscreen">;
 };
 
@@ -48,6 +50,7 @@ export function LiveGrid({
   audioSyncKey,
   onFocusAudio,
   fullscreenChannelId = null,
+  focusedChannelId = null,
   saverSettings = SAVER_OFF,
 }: LiveGridProps) {
   if (channels.length === 0) {
@@ -87,6 +90,8 @@ export function LiveGrid({
           quality={quality}
           audioSyncKey={audioSyncKey}
           onFocusAudio={onFocusAudio}
+          // A ring only helps tell streams apart when there is more than one.
+          focused={channels.length > 1 && focusedChannelId === channel.channelId}
           saverAction={fullscreenSaverAction({
             channelId: channel.channelId,
             platform: channel.platform,

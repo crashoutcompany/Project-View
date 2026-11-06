@@ -45,6 +45,8 @@ export function useStreamSettings({
   const settings = useSettings()
   const [focusedChannelId, setFocusedChannelId] = React.useState<string | null>(null)
   const [fullscreenId, setFullscreenId] = React.useState<string | null>(null)
+  // Set by the mute shortcut: every stream stays muted until it is cleared.
+  const [audioMuted, setAudioMuted] = React.useState(false)
   const [removedToast, setRemovedToast] = React.useState<RemovedToast | null>(null)
   const offlineStateRef = React.useRef<OfflineState | null>(null)
   const channelIds = channels.map((channel) => channel.channelId)
@@ -73,6 +75,7 @@ export function useStreamSettings({
         const element = document.activeElement
         if (element instanceof HTMLIFrameElement && element.dataset.channelId) {
           setFocusedChannelId(element.dataset.channelId)
+          setAudioMuted(false)
         }
       }, 0)
     }
@@ -81,13 +84,23 @@ export function useStreamSettings({
     return () => window.removeEventListener("blur", onBlur)
   }, [settings.audioFollowsFocus])
 
-  const audioChannelId = resolveAudioChannelId({
+  const resolvedAudioChannelId = resolveAudioChannelId({
     channelIds,
     activeAudioChannelId,
     focusedChannelId,
     fullscreenChannelId: fullscreenId,
     settings,
   })
+  const audioChannelId = audioMuted ? null : resolvedAudioChannelId
+
+  // Clicking a stream, or its number key, focuses it. When audio follows
+  // focus, that also brings the sound back after a mute.
+  function focusStream(channelId: string) {
+    setFocusedChannelId(channelId)
+    if (settings.audioFollowsFocus) {
+      setAudioMuted(false)
+    }
+  }
 
   // Auto-remove: start counting from what is on screen when it is turned on.
   const autoRemove = settings.autoRemoveOffline
@@ -208,7 +221,12 @@ export function useStreamSettings({
     fullscreenChannelId: fullscreenId && channelIds.includes(fullscreenId) ? fullscreenId : null,
     // Re-sync mutes on every fullscreen change while that setting is on.
     audioSyncKey: settings.muteOthersOnFullscreen ? (fullscreenId ?? "") : "",
-    onFocusAudio: settings.audioFollowsFocus ? setFocusedChannelId : undefined,
+    onFocusAudio: settings.audioFollowsFocus ? focusStream : undefined,
+    // The last clicked or keyed stream, if it is still on this wall.
+    focusedChannelId:
+      focusedChannelId && channelIds.includes(focusedChannelId) ? focusedChannelId : null,
+    focusStream,
+    setAudioMuted,
     recordCheck,
     restoreChannelIds,
     onRestoreHandled: () => setRestoreHandled(true),

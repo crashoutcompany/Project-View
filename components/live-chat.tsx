@@ -95,6 +95,8 @@ export function LiveChatPanel({
         data-open={open}
         aria-label="Live chat"
         aria-hidden={!open}
+        // Keys here belong to the chat, not the stream wall shortcuts.
+        data-shortcuts-ignore=""
         inert={!open}
         className={cn(
           "absolute inset-y-0 right-0 z-30 flex w-full translate-x-full flex-col border-l border-border/40 bg-background transition-transform duration-200 ease-out data-[open=true]:translate-x-0 sm:w-96 lg:relative lg:z-auto lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out",

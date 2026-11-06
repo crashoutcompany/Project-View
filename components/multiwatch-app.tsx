@@ -17,6 +17,7 @@ import {
 } from "@/app/actions";
 import { ChannelCombobox } from "@/components/channel-combobox";
 import { ChannelResults } from "@/components/channel-results";
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { ChatToggleButton, LiveChatPanel } from "@/components/live-chat";
 import { LiveGrid } from "@/components/live-grid";
 import { PlatformFilter } from "@/components/platform-filter";
@@ -25,12 +26,14 @@ import { SettingsPanel } from "@/components/settings/settings-panel";
 import { useStreamSettings } from "@/components/settings/use-stream-settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { Shortcut } from "@/lib/keyboard-shortcuts";
 import { sortLiveFirst } from "@/lib/live";
 import {
   ChannelResult,
   Platform,
   PlatformFilter as PlatformFilterValue,
 } from "@/lib/types";
+import { useKeyboardShortcuts } from "@/lib/use-keyboard-shortcuts";
 import { cn } from "@/lib/utils";
 
 type MultiwatchAppProps = {
@@ -129,6 +132,7 @@ export function MultiwatchApp({
   );
   // Hidden by default; only reachable once a channel is selected.
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   // Starts from the server timestamp so uptime text hydrates without a
   // mismatch, then ticks once a minute.
   const [now, setNow] = React.useState(() => Date.parse(initialUpdatedAt));
@@ -319,6 +323,97 @@ export function MultiwatchApp({
     activeAudioChannelId,
     onLiveCheck: handleManualRefresh,
     onRestoreChannels: handleRestoreChannels,
+  });
+
+  // What M and F act on: the fullscreen stream, then the last clicked or
+  // numbered one, then the one with audio, then the first.
+  const shortcutChannelId =
+    streamSettings.fullscreenChannelId ??
+    streamSettings.focusedChannelId ??
+    streamSettings.audioChannelId ??
+    (selectedChannels.some(
+      (channel) => channel.channelId === activeAudioChannelId,
+    )
+      ? activeAudioChannelId
+      : null) ??
+    selectedChannels[0]?.channelId ??
+    null;
+
+  function findTile(channelId: string) {
+    const tiles = streamsRef.current?.querySelectorAll<HTMLElement>("[data-tile]");
+    return (
+      Array.from(tiles ?? []).find(
+        (tile) => tile.dataset.channelId === channelId,
+      ) ?? null
+    );
+  }
+
+  // Same path as clicking a stream, so audio follows focus the same way. DOM
+  // focus stays on the page: moving it into a player would swallow later keys.
+  function handleFocusShortcut(index: number) {
+    const channel = selectedChannels[index];
+    if (!channel) {
+      return;
+    }
+
+    streamSettings.focusStream(channel.channelId);
+    findTile(channel.channelId)?.scrollIntoView({ block: "nearest" });
+  }
+
+  function handleMuteShortcut() {
+    if (!shortcutChannelId) {
+      return;
+    }
+
+    if (streamSettings.audioChannelId === shortcutChannelId) {
+      streamSettings.setAudioMuted(true);
+      return;
+    }
+
+    setActiveAudioChannelId(shortcutChannelId);
+    streamSettings.focusStream(shortcutChannelId);
+    streamSettings.setAudioMuted(false);
+  }
+
+  // A stream tile carries its channel id, so the fullscreen saver and
+  // mute-others treat it like a player's own fullscreen.
+  function handleFullscreenShortcut() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch((error) => {
+        console.error(error);
+      });
+      return;
+    }
+
+    if (!fullscreenSupported || !shortcutChannelId) {
+      return;
+    }
+
+    findTile(shortcutChannelId)
+      ?.requestFullscreen()
+      .catch((error) => {
+        console.error(error);
+      });
+  }
+
+  useKeyboardShortcuts((shortcut: Shortcut) => {
+    if (shortcut.type === "help") {
+      setShortcutsOpen((open) => !open);
+      return;
+    }
+
+    // The help dialog is modal, so nothing behind it reacts.
+    if (shortcutsOpen) {
+      return;
+    }
+
+    if (shortcut.type === "focus") {
+      handleFocusShortcut(shortcut.index);
+    } else if (shortcut.type === "mute") {
+      handleMuteShortcut();
+    } else {
+      handleFullscreenShortcut();
+    }
   });
 
   // Reopen the last streams once, unless the link already names some.
@@ -525,6 +620,7 @@ export function MultiwatchApp({
             audioSyncKey={streamSettings.audioSyncKey}
             onFocusAudio={streamSettings.onFocusAudio}
             fullscreenChannelId={streamSettings.fullscreenChannelId}
+            focusedChannelId={streamSettings.focusedChannelId}
             saverSettings={streamSettings.settings}
           />
         </main>
@@ -536,6 +632,11 @@ export function MultiwatchApp({
           onClose={() => setChatOpen(false)}
         />
       </div>
+
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+      />
 
       <RemovedStreamsToast
         toast={streamSettings.removedToast}
