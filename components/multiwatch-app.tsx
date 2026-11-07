@@ -674,6 +674,14 @@ export function MultiwatchApp({
           data-stream-wall=""
           className="flex-1 overflow-y-auto bg-[#050507]"
         >
+          {/* Before the grid, so Tab reaches the arrows before the player. */}
+          {spotlight && streamSettings.settings.fullscreenSwitcher ? (
+            <FullscreenSwitcher
+              channels={selectedChannels}
+              channelId={spotlight.channelId}
+              onStep={handleStep}
+            />
+          ) : null}
           <LiveGrid
             channels={selectedChannels}
             activeAudioChannelId={streamSettings.audioChannelId}
@@ -688,13 +696,6 @@ export function MultiwatchApp({
             spotlightChannelId={spotlight?.channelId ?? null}
             saverSettings={streamSettings.settings}
           />
-          {spotlight && streamSettings.settings.fullscreenSwitcher ? (
-            <FullscreenSwitcher
-              channels={selectedChannels}
-              channelId={spotlight.channelId}
-              onStep={handleStep}
-            />
-          ) : null}
         </main>
 
         <LiveChatPanel

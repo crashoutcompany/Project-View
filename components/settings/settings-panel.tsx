@@ -417,7 +417,7 @@ export function SettingsPanel({
               <ToggleRow
                 settingKey="fullscreenSwitcher"
                 label="Stream switcher in full screen"
-                description="Arrows and the stream name show over a full screen stream. Number keys and ← → switch streams either way."
+                description="The stream name shows after each switch, and arrows show when you point at either edge. Number keys and ← → switch streams either way."
               />
             </Section>
 
