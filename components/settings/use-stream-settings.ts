@@ -27,9 +27,31 @@ type UseStreamSettingsOptions = {
 
 export type RemovedToast = { id: number; channels: ChannelResult[] }
 
-function fullscreenChannelId() {
+// Marks the stream wall, the one element the app itself puts in fullscreen.
+export const STREAM_WALL_ATTRIBUTE = "data-stream-wall"
+
+// One stream shown over the fullscreen wall. `fromWall` says where F goes
+// back to: the wall, or out of fullscreen when it started from the page.
+export type Spotlight = { channelId: string; fromWall: boolean }
+
+type FullscreenState = {
+  // Set when a player's own button made its iframe fullscreen.
+  channelId: string | null
+  wall: boolean
+}
+
+const NOT_FULLSCREEN: FullscreenState = { channelId: null, wall: false }
+
+function readFullscreen(): FullscreenState {
   const element = document.fullscreenElement
-  return element instanceof HTMLElement ? (element.dataset.channelId ?? null) : null
+  if (!(element instanceof HTMLElement)) {
+    return NOT_FULLSCREEN
+  }
+
+  return {
+    channelId: element.dataset.channelId ?? null,
+    wall: element.hasAttribute(STREAM_WALL_ATTRIBUTE),
+  }
 }
 
 /**
@@ -44,7 +66,8 @@ export function useStreamSettings({
 }: UseStreamSettingsOptions) {
   const settings = useSettings()
   const [focusedChannelId, setFocusedChannelId] = React.useState<string | null>(null)
-  const [fullscreenId, setFullscreenId] = React.useState<string | null>(null)
+  const [fullscreen, setFullscreen] = React.useState(NOT_FULLSCREEN)
+  const [spotlightState, setSpotlight] = React.useState<Spotlight | null>(null)
   // Set by the mute shortcut: every stream stays muted until it is cleared.
   const [audioMuted, setAudioMuted] = React.useState(false)
   const [removedToast, setRemovedToast] = React.useState<RemovedToast | null>(null)
@@ -53,10 +76,16 @@ export function useStreamSettings({
   const channelKey = channelIds.join(",")
 
   // Fullscreen from a player's own button makes its iframe the fullscreen
-  // element, which the parent page can see even across origins.
+  // element, which the parent page can see even across origins. Leaving
+  // fullscreen entirely (Esc) ends the spotlight; a player's own fullscreen on
+  // top of the wall keeps it for when the player exits.
   React.useEffect(() => {
     function onFullscreenChange() {
-      setFullscreenId(fullscreenChannelId())
+      const next = readFullscreen()
+      setFullscreen(next)
+      if (!next.wall && !next.channelId) {
+        setSpotlight(null)
+      }
     }
 
     document.addEventListener("fullscreenchange", onFullscreenChange)
@@ -83,6 +112,14 @@ export function useStreamSettings({
     window.addEventListener("blur", onBlur)
     return () => window.removeEventListener("blur", onBlur)
   }, [settings.audioFollowsFocus])
+
+  // Only valid while the wall is fullscreen and the stream is still on it.
+  const spotlight =
+    fullscreen.wall && spotlightState && channelIds.includes(spotlightState.channelId)
+      ? spotlightState
+      : null
+  // A spotlit stream counts as fullscreen, for audio and the resource saver.
+  const fullscreenId = fullscreen.channelId ?? spotlight?.channelId ?? null
 
   const resolvedAudioChannelId = resolveAudioChannelId({
     channelIds,
@@ -219,6 +256,10 @@ export function useStreamSettings({
     audioChannelId,
     // Only a stream on this wall counts as fullscreen.
     fullscreenChannelId: fullscreenId && channelIds.includes(fullscreenId) ? fullscreenId : null,
+    // True while the wall itself is the fullscreen element.
+    wallFullscreen: fullscreen.wall,
+    spotlight,
+    setSpotlight,
     // Re-sync mutes on every fullscreen change while that setting is on.
     audioSyncKey: settings.muteOthersOnFullscreen ? (fullscreenId ?? "") : "",
     onFocusAudio: settings.audioFollowsFocus ? focusStream : undefined,

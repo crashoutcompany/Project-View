@@ -17,6 +17,7 @@ import {
 } from "@/app/actions";
 import { ChannelCombobox } from "@/components/channel-combobox";
 import { ChannelResults } from "@/components/channel-results";
+import { FullscreenSwitcher } from "@/components/fullscreen-switcher";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { ChatToggleButton, LiveChatPanel } from "@/components/live-chat";
 import { LiveGrid } from "@/components/live-grid";
@@ -137,7 +138,9 @@ export function MultiwatchApp({
   // mismatch, then ticks once a minute.
   const [now, setNow] = React.useState(() => Date.parse(initialUpdatedAt));
   const searchTimeoutRef = React.useRef<number | null>(null);
-  const streamsRef = React.useRef<HTMLElement>(null);
+  // State rather than a ref: the help dialog renders inside it in fullscreen.
+  const [streamsElement, setStreamsElement] =
+    React.useState<HTMLElement | null>(null);
   const fullscreenSupported = useFullscreenSupported();
 
   React.useEffect(() => {
@@ -295,10 +298,26 @@ export function MultiwatchApp({
 
   // Only the streams area goes fullscreen, so the header, sidebar and chat
   // stay hidden until the viewer exits (Esc or the browser's own control).
-  function handleEnterFullscreen() {
-    streamsRef.current?.requestFullscreen().catch((error) => {
+  // A single stream is the wall plus a spotlight, so switching streams never
+  // needs another fullscreen request.
+  function enterFullscreen(spotlightChannelId: string | null) {
+    if (!streamsElement) {
+      return;
+    }
+
+    streamSettings.setSpotlight(
+      spotlightChannelId
+        ? { channelId: spotlightChannelId, fromWall: false }
+        : null,
+    );
+    streamsElement.requestFullscreen().catch((error) => {
+      streamSettings.setSpotlight(null);
       console.error(error);
     });
+  }
+
+  function handleEnterFullscreen() {
+    enterFullscreen(null);
   }
 
   function handleManualRefresh() {
@@ -340,7 +359,7 @@ export function MultiwatchApp({
     null;
 
   function findTile(channelId: string) {
-    const tiles = streamsRef.current?.querySelectorAll<HTMLElement>("[data-tile]");
+    const tiles = streamsElement?.querySelectorAll<HTMLElement>("[data-tile]");
     return (
       Array.from(tiles ?? []).find(
         (tile) => tile.dataset.channelId === channelId,
@@ -348,16 +367,40 @@ export function MultiwatchApp({
     );
   }
 
+  const { spotlight } = streamSettings;
+
   // Same path as clicking a stream, so audio follows focus the same way. DOM
   // focus stays on the page: moving it into a player would swallow later keys.
-  function handleFocusShortcut(index: number) {
-    const channel = selectedChannels[index];
-    if (!channel) {
+  // In fullscreen the spotlight moves with the focus.
+  function showStream(channelId: string) {
+    streamSettings.focusStream(channelId);
+    if (spotlight) {
+      streamSettings.setSpotlight({ ...spotlight, channelId });
       return;
     }
 
-    streamSettings.focusStream(channel.channelId);
-    findTile(channel.channelId)?.scrollIntoView({ block: "nearest" });
+    findTile(channelId)?.scrollIntoView({ block: "nearest" });
+  }
+
+  function handleFocusShortcut(index: number) {
+    const channel = selectedChannels[index];
+    if (channel) {
+      showStream(channel.channelId);
+    }
+  }
+
+  // Wraps around at either end.
+  function handleStep(delta: 1 | -1) {
+    const count = selectedChannels.length;
+    if (count === 0) {
+      return;
+    }
+
+    const current = selectedChannels.findIndex(
+      (channel) => channel.channelId === shortcutChannelId,
+    );
+    const next = current === -1 ? 0 : (current + delta + count) % count;
+    showStream(selectedChannels[next].channelId);
   }
 
   function handleMuteShortcut() {
@@ -375,25 +418,41 @@ export function MultiwatchApp({
     streamSettings.setAudioMuted(false);
   }
 
-  // A stream tile carries its channel id, so the fullscreen saver and
-  // mute-others treat it like a player's own fullscreen.
+  function exitFullscreen() {
+    document.exitFullscreen().catch((error) => {
+      console.error(error);
+    });
+  }
+
+  // F toggles one stream: from the page it fullscreens the focused stream and
+  // back out; on the fullscreen wall it spotlights the focused stream and
+  // back to the wall. The fullscreen saver and mute-others treat a spotlit
+  // stream like a player's own fullscreen.
   function handleFullscreenShortcut() {
+    if (streamSettings.wallFullscreen) {
+      if (spotlight) {
+        if (spotlight.fromWall) {
+          streamSettings.setSpotlight(null);
+        } else {
+          exitFullscreen();
+        }
+      } else if (shortcutChannelId) {
+        streamSettings.setSpotlight({
+          channelId: shortcutChannelId,
+          fromWall: true,
+        });
+      }
+      return;
+    }
+
     if (document.fullscreenElement) {
-      document.exitFullscreen().catch((error) => {
-        console.error(error);
-      });
+      exitFullscreen();
       return;
     }
 
-    if (!fullscreenSupported || !shortcutChannelId) {
-      return;
+    if (fullscreenSupported && shortcutChannelId) {
+      enterFullscreen(shortcutChannelId);
     }
-
-    findTile(shortcutChannelId)
-      ?.requestFullscreen()
-      .catch((error) => {
-        console.error(error);
-      });
   }
 
   useKeyboardShortcuts((shortcut: Shortcut) => {
@@ -409,6 +468,8 @@ export function MultiwatchApp({
 
     if (shortcut.type === "focus") {
       handleFocusShortcut(shortcut.index);
+    } else if (shortcut.type === "step") {
+      handleStep(shortcut.delta);
     } else if (shortcut.type === "mute") {
       handleMuteShortcut();
     } else {
@@ -608,19 +669,31 @@ export function MultiwatchApp({
 
         {/* Streams area - fills all remaining space */}
         <main
-          ref={streamsRef}
+          ref={setStreamsElement}
+          // STREAM_WALL_ATTRIBUTE: tells the wall's fullscreen from a player's.
+          data-stream-wall=""
           className="flex-1 overflow-y-auto bg-[#050507]"
         >
+          {/* Before the grid, so Tab reaches the arrows before the player. */}
+          {spotlight && streamSettings.settings.fullscreenSwitcher ? (
+            <FullscreenSwitcher
+              channels={selectedChannels}
+              channelId={spotlight.channelId}
+              onStep={handleStep}
+            />
+          ) : null}
           <LiveGrid
             channels={selectedChannels}
             activeAudioChannelId={streamSettings.audioChannelId}
             twitchParents={twitchParents}
             layout={streamSettings.settings.gridLayout}
             quality={streamSettings.settings.defaultQuality}
+            fit={streamSettings.settings.streamFit}
             audioSyncKey={streamSettings.audioSyncKey}
             onFocusAudio={streamSettings.onFocusAudio}
             fullscreenChannelId={streamSettings.fullscreenChannelId}
             focusedChannelId={streamSettings.focusedChannelId}
+            spotlightChannelId={spotlight?.channelId ?? null}
             saverSettings={streamSettings.settings}
           />
         </main>
@@ -636,6 +709,8 @@ export function MultiwatchApp({
       <KeyboardShortcutsDialog
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}
+        // Anything outside the fullscreen element is hidden behind it.
+        container={streamSettings.wallFullscreen ? streamsElement : null}
       />
 
       <RemovedStreamsToast

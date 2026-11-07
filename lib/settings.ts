@@ -13,6 +13,10 @@ export type StreamQuality = (typeof STREAM_QUALITIES)[number]
 export const GRID_LAYOUTS = ["auto", "one-column", "two-columns", "featured"] as const
 export type GridLayout = (typeof GRID_LAYOUTS)[number]
 
+// "fit" shows the whole picture; "fill" crops each stream to cover its tile.
+export const STREAM_FITS = ["fit", "fill"] as const
+export type StreamFit = (typeof STREAM_FITS)[number]
+
 export const MAX_SAVED_GROUPS = 20
 export const MAX_GROUP_NAME_LENGTH = 40
 
@@ -27,10 +31,13 @@ export type Settings = {
   muteOthersOnFullscreen: boolean
   saveResourcesOnFullscreen: boolean
   pauseOthersOnFullscreen: boolean
+  // On-screen arrows and the stream name over a single fullscreen stream.
+  fullscreenSwitcher: boolean
   autoRemoveOffline: boolean
   audioFollowsFocus: boolean
   defaultQuality: StreamQuality
   gridLayout: GridLayout
+  streamFit: StreamFit
   rememberLastStreams: boolean
   lastChannelIds: string[]
   savedGroups: SavedGroup[]
@@ -41,10 +48,12 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   muteOthersOnFullscreen: true,
   saveResourcesOnFullscreen: true,
   pauseOthersOnFullscreen: false,
+  fullscreenSwitcher: true,
   autoRemoveOffline: false,
   audioFollowsFocus: false,
   defaultQuality: "auto",
   gridLayout: "auto",
+  streamFit: "fit",
   rememberLastStreams: false,
   lastChannelIds: [],
   savedGroups: [],
@@ -135,10 +144,12 @@ export function migrateSettings(raw: unknown): Settings {
       raw.pauseOthersOnFullscreen,
       DEFAULT_SETTINGS.pauseOthersOnFullscreen
     ),
+    fullscreenSwitcher: readBoolean(raw.fullscreenSwitcher, DEFAULT_SETTINGS.fullscreenSwitcher),
     autoRemoveOffline: readBoolean(raw.autoRemoveOffline, DEFAULT_SETTINGS.autoRemoveOffline),
     audioFollowsFocus: readBoolean(raw.audioFollowsFocus, DEFAULT_SETTINGS.audioFollowsFocus),
     defaultQuality: readEnum(raw.defaultQuality, STREAM_QUALITIES, DEFAULT_SETTINGS.defaultQuality),
     gridLayout: readEnum(raw.gridLayout, GRID_LAYOUTS, DEFAULT_SETTINGS.gridLayout),
+    streamFit: readEnum(raw.streamFit, STREAM_FITS, DEFAULT_SETTINGS.streamFit),
     rememberLastStreams: readBoolean(
       raw.rememberLastStreams,
       DEFAULT_SETTINGS.rememberLastStreams

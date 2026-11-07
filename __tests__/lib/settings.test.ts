@@ -34,8 +34,10 @@ describe("settings store", () => {
       muteOthersOnFullscreen: false,
       saveResourcesOnFullscreen: false,
       pauseOthersOnFullscreen: true,
+      fullscreenSwitcher: false,
       defaultQuality: "low" as const,
       gridLayout: "featured" as const,
+      streamFit: "fill" as const,
       rememberLastStreams: true,
       lastChannelIds: ["UCabc", "tw:123"],
       savedGroups: [{ id: "g1", name: "Speedruns", channelIds: ["tw:42"] }],
@@ -58,8 +60,11 @@ describe("settings store", () => {
     expect(migrated.autoRemoveOffline).toBe(true)
     expect(migrated.defaultQuality).toBe("auto")
     expect(migrated.gridLayout).toBe("two-columns")
+    expect(migrated.streamFit).toBe("fit")
     expect(migrated.saveResourcesOnFullscreen).toBe(true)
     expect(migrated.pauseOthersOnFullscreen).toBe(false)
+    // Stored before the switcher setting existed.
+    expect(migrated.fullscreenSwitcher).toBe(true)
   })
 
   it("migrates an unversioned (pre-v1) value and ignores unknown versions", () => {

@@ -15,7 +15,7 @@ import {
   youtubeQualityParam,
 } from "@/lib/embed-control"
 import { IDLE_SAVER_MEMO, SaverAction, transitionSaver } from "@/lib/fullscreen-saver"
-import type { StreamQuality } from "@/lib/settings"
+import type { StreamFit, StreamQuality } from "@/lib/settings"
 import { twitchPlayerUrl } from "@/lib/twitch-embed"
 import { ChannelResult } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,8 @@ type LiveTileProps = {
   activeAudio: boolean
   twitchParents: string[]
   quality?: StreamQuality
+  // "fill" crops the player to cover the video area instead of letterboxing.
+  fit?: StreamFit
   // Changing this re-sends the mute state even when it didn't change, e.g. to
   // re-mute a player the viewer unmuted by hand before a fullscreen.
   audioSyncKey?: string
@@ -35,9 +37,16 @@ type LiveTileProps = {
   saverAction?: SaverAction | null
   // The stream the keyboard shortcuts act on, marked with a ring.
   focused?: boolean
+  // Hidden under a spotlit stream in fullscreen: still playing, but out of
+  // reach for the pointer, Tab and screen readers.
+  covered?: boolean
   className?: string
   style?: React.CSSProperties
 }
+
+// The strip above each player with the streamer and stream title. The grid
+// packs tiles with this in mind, so keep it in sync with the `h-8` below.
+export const TILE_HEADER_HEIGHT = 32
 
 // The player identity: a new value means a new iframe load.
 function embedTarget(channel: ChannelResult, twitchParents: string[]) {
@@ -91,10 +100,12 @@ export function LiveTile({
   activeAudio,
   twitchParents,
   quality = "auto",
+  fit = "fit",
   audioSyncKey,
   onFocusAudio,
   saverAction = null,
   focused = false,
+  covered = false,
   className,
   style,
 }: LiveTileProps) {
@@ -201,13 +212,22 @@ export function LiveTile({
       data-channel-id={channel.channelId}
       data-tile=""
       data-focused={focused || undefined}
+      inert={covered || undefined}
+      aria-hidden={covered || undefined}
     >
-      {/* Video area fills all space */}
-      <div className="flex-1">
+      <TileHeader channel={channel} />
+      {/* A size container, so a filled player can size itself from it. */}
+      <div className="relative min-h-0 flex-1 overflow-hidden [container-type:size]">
         {src ? (
           <iframe
             ref={frameRef}
-            className="size-full"
+            className={
+              fit === "fill"
+                ? // Covers the area at 16:9 and crops the overflow, like
+                  // object-fit: cover.
+                  "absolute top-1/2 left-1/2 h-[max(100cqh,calc(100cqw*9/16))] w-[max(100cqw,calc(100cqh*16/9))] max-w-none -translate-x-1/2 -translate-y-1/2"
+                : "size-full"
+            }
             src={src}
             title={`${channel.title} live stream`}
             data-channel-id={channel.channelId}
@@ -228,41 +248,55 @@ export function LiveTile({
                 size="default"
                 className="size-14 opacity-80"
               />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-white/85">
-                  {channel.title}
-                </p>
-                <p className="text-xs font-medium tracking-wide text-white/50 uppercase">
-                  {channel.live.status === "unknown" ? "Status unknown" : "Offline"}
-                </p>
-              </div>
+              {/* The name is in the header strip above. */}
+              <p className="text-xs font-medium tracking-wide text-white/50 uppercase">
+                {channel.live.status === "unknown" ? "Status unknown" : "Offline"}
+              </p>
             </div>
           </div>
         )}
+        {focusAudio && src ? (
+          <button
+            type="button"
+            onClick={focusAudio}
+            aria-label={activeAudio ? `${channel.title} is playing audio` : `Play audio from ${channel.title}`}
+            aria-pressed={activeAudio}
+            className="absolute top-2 right-2 flex size-8 items-center justify-center bg-black/60 text-white/85 backdrop-blur-sm transition-opacity duration-150 ease-out pointer-coarse:size-11 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            {activeAudio ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+          </button>
+        ) : null}
       </div>
-      {/* Fades on hover so it never covers the player's own controls. */}
-      <PlatformBadge
-        platform={channel.platform}
-        showLabel
-        className="pointer-events-none absolute top-2 left-2 transition-opacity duration-150 ease-out group-hover:opacity-0"
-      />
       {focused ? (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 ring-2 ring-primary/70 ring-inset"
         />
       ) : null}
-      {focusAudio && src ? (
-        <button
-          type="button"
-          onClick={focusAudio}
-          aria-label={activeAudio ? `${channel.title} is playing audio` : `Play audio from ${channel.title}`}
-          aria-pressed={activeAudio}
-          className="absolute top-2 right-2 flex size-8 items-center justify-center bg-black/60 text-white/85 backdrop-blur-sm transition-opacity duration-150 ease-out pointer-coarse:size-11 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
-        >
-          {activeAudio ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-        </button>
-      ) : null}
+    </div>
+  )
+}
+
+// Streamer, stream title and platform, in the strip that would otherwise be
+// letterbox bars. Fixed light tones, like the rest of the always-dark tile.
+function TileHeader({ channel }: { channel: ChannelResult }) {
+  const streamTitle = channel.live.status === "live" ? channel.live.title : undefined
+
+  return (
+    <div className="flex h-8 shrink-0 items-center gap-2 bg-[#0a0a0f] px-2 text-xs">
+      <ChannelAvatar
+        title={channel.title}
+        thumbnailUrl={channel.thumbnailUrl}
+        size="sm"
+        className="size-5"
+      />
+      <span className="max-w-[45%] shrink-0 truncate font-medium text-white/90">
+        {channel.title}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-white/55" title={streamTitle}>
+        {streamTitle}
+      </span>
+      <PlatformBadge platform={channel.platform} />
     </div>
   )
 }

@@ -42,6 +42,20 @@ describe("shortcutForKey", () => {
     expect(shortcutForKey(keyEvent("Escape"))).toBeNull()
   })
 
+  it("maps the left and right arrows to a step back or forward", () => {
+    expect(shortcutForKey(keyEvent("ArrowRight"))).toEqual({ type: "step", delta: 1 })
+    expect(shortcutForKey(keyEvent("ArrowLeft"))).toEqual({ type: "step", delta: -1 })
+    expect(shortcutForKey(keyEvent("ArrowUp"))).toBeNull()
+  })
+
+  it("leaves the arrows to widgets that use them, and to dialogs", () => {
+    const radio = element('<div role="radiogroup"><button role="radio"></button></div>', "button")
+    expect(shortcutForKey(keyEvent("ArrowRight", { target: radio }))).toBeNull()
+
+    const dialogButton = element('<div role="dialog"><button></button></div>', "button")
+    expect(shortcutForKey(keyEvent("ArrowLeft", { target: dialogButton }))).toBeNull()
+  })
+
   it.each(["ctrlKey", "metaKey", "altKey"] as const)("ignores keys with %s held", (modifier) => {
     expect(shortcutForKey(keyEvent("f", { [modifier]: true }))).toBeNull()
     expect(shortcutForKey(keyEvent("1", { [modifier]: true }))).toBeNull()
