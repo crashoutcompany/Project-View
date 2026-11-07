@@ -16,12 +16,12 @@ type FullscreenSwitcherProps = {
 }
 
 const ARROW_CLASS =
-  "pointer-events-auto absolute top-1/2 flex size-10 -translate-y-1/2 items-center justify-center bg-black/60 text-white/85 opacity-40 backdrop-blur-sm transition-opacity duration-150 ease-out hover:opacity-100 focus-visible:opacity-100 pointer-coarse:size-12 pointer-coarse:opacity-80"
+  "pointer-events-auto absolute top-1/2 flex size-10 -translate-y-1/2 items-center justify-center bg-black/60 text-white/90 opacity-70 backdrop-blur-sm transition-opacity duration-150 ease-out hover:opacity-100 focus-visible:opacity-100 pointer-coarse:size-12"
 
 /**
  * Previous and next arrows over a spotlit fullscreen stream, plus its name for
  * a moment after each switch. Pointer moves over a player never reach the
- * page, so the arrows can't wait for hover to appear; they stay dim instead.
+ * page, so the arrows can't wait for hover to appear; they stay half-dimmed instead.
  */
 export function FullscreenSwitcher({ channels, channelId, onStep }: FullscreenSwitcherProps) {
   const [labelHiddenFor, setLabelHiddenFor] = React.useState<string | null>(null)
