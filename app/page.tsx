@@ -9,6 +9,7 @@ import {
   getSelectedChannels,
   projectConfigured,
 } from "@/lib/search-service"
+import { isRateLimited, RATE_LIMITED_MESSAGE } from "@/lib/rate-limit"
 import { twitchParentHosts } from "@/lib/twitch-embed"
 
 type PageProps = {
@@ -52,11 +53,14 @@ export async function PageContent({ searchParams }: PageProps) {
       ? resolvedSearchParams.channels.split(",").filter(Boolean)
       : []
 
+  // Over the limit: serve from the cache only, never the YouTube API.
+  const cachedOnly = configured && (await isRateLimited(requestHeaders))
+
   const [seedPayload, searchPayload, selectedChannels] = configured
     ? await Promise.all([
-        getSeedResults(),
-        getSearchResults(query),
-        getSelectedChannels(channelIds),
+        getSeedResults(cachedOnly),
+        getSearchResults(query, "all", cachedOnly),
+        getSelectedChannels(channelIds, cachedOnly),
       ])
     : [
         { query: "", channels: [], cached: false, source: "seed" as const },
@@ -72,6 +76,7 @@ export async function PageContent({ searchParams }: PageProps) {
       initialSelectedChannels={selectedChannels}
       initialUpdatedAt={new Date().toISOString()}
       configured={configured}
+      notice={cachedOnly ? RATE_LIMITED_MESSAGE : undefined}
       platforms={configured ? configuredPlatforms() : []}
       twitchParents={twitchParents}
     />

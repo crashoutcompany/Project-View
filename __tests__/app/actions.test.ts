@@ -3,6 +3,7 @@
  */
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { MAX_SELECTED_CHANNELS } from "@/lib/cache-keys"
 import type { ChannelResult, SearchPayload } from "@/lib/types"
 
 const mockCheckBotId = vi.fn<() => Promise<{ isBot: boolean }>>()
@@ -11,6 +12,17 @@ const mockProjectConfigured = vi.fn<() => boolean>()
 const mockRefreshChannelLiveStatus = vi.fn<
   (channelId: string) => Promise<ChannelResult | null>
 >()
+
+const mockIsRateLimited = vi.fn<(headers: Headers) => Promise<boolean>>()
+
+vi.doMock("next/headers", () => ({
+  headers: async () => new Headers({ "x-forwarded-for": "203.0.113.9" }),
+}))
+
+vi.doMock("@/lib/rate-limit", () => ({
+  isRateLimited: mockIsRateLimited,
+  RATE_LIMITED_MESSAGE: "limited",
+}))
 
 vi.doMock("botid/server", () => ({
   checkBotId: mockCheckBotId,
@@ -33,6 +45,7 @@ describe("server actions", () => {
   beforeEach(() => {
     mockCheckBotId.mockResolvedValue({ isBot: false })
     mockProjectConfigured.mockReturnValue(true)
+    mockIsRateLimited.mockResolvedValue(false)
     mockGetSearchResults.mockReset()
     mockRefreshChannelLiveStatus.mockReset()
   })
@@ -87,10 +100,10 @@ describe("server actions", () => {
   it("canonicalizes yt: ids and accepts tw: ids on refresh", async () => {
     mockRefreshChannelLiveStatus.mockResolvedValue(null)
 
-    await refreshSelectedChannelsAction(["yt:UC123", "UC123", "tw:12345"])
+    await refreshSelectedChannelsAction(["yt:UC123xxxxxxxxxxxxxxxxxxx", "UC123xxxxxxxxxxxxxxxxxxx", "tw:12345"])
 
     expect(mockRefreshChannelLiveStatus.mock.calls.map(([id]) => id)).toEqual([
-      "UC123",
+      "UC123xxxxxxxxxxxxxxxxxxx",
       "tw:12345",
     ])
     await expect(refreshSelectedChannelsAction(["tw:not-a-number"])).rejects.toThrow(
@@ -109,7 +122,7 @@ describe("server actions", () => {
     mockRefreshChannelLiveStatus
       .mockResolvedValueOnce({
         platform: "youtube",
-        channelId: "chan-1",
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
         title: "Channel One",
         description: "",
         thumbnailUrl: "",
@@ -118,11 +131,11 @@ describe("server actions", () => {
       .mockResolvedValueOnce(null)
 
     await expect(
-      refreshSelectedChannelsAction(["chan-1", "", "chan-1", "chan-2"])
+      refreshSelectedChannelsAction(["UCchan-1xxxxxxxxxxxxxxxx", "", "UCchan-1xxxxxxxxxxxxxxxx", "UCchan-2xxxxxxxxxxxxxxxx"])
     ).resolves.toEqual([
       {
         platform: "youtube",
-        channelId: "chan-1",
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
         title: "Channel One",
         description: "",
         thumbnailUrl: "",
@@ -131,14 +144,14 @@ describe("server actions", () => {
     ])
 
     expect(mockRefreshChannelLiveStatus).toHaveBeenCalledTimes(2)
-    expect(mockRefreshChannelLiveStatus).toHaveBeenNthCalledWith(1, "chan-1")
-    expect(mockRefreshChannelLiveStatus).toHaveBeenNthCalledWith(2, "chan-2")
+    expect(mockRefreshChannelLiveStatus).toHaveBeenNthCalledWith(1, "UCchan-1xxxxxxxxxxxxxxxx", false)
+    expect(mockRefreshChannelLiveStatus).toHaveBeenNthCalledWith(2, "UCchan-2xxxxxxxxxxxxxxxx", false)
   })
 
   it("rejects refresh requests from bots", async () => {
     mockCheckBotId.mockResolvedValueOnce({ isBot: true })
 
-    await expect(refreshSelectedChannelsAction(["chan-1"])).rejects.toThrow(
+    await expect(refreshSelectedChannelsAction(["UCchan-1xxxxxxxxxxxxxxxx"])).rejects.toThrow(
       "Access denied"
     )
   })
@@ -149,19 +162,37 @@ describe("server actions", () => {
   })
 
   it("caps how many channels one refresh can fan out to", async () => {
-    const ids = Array.from({ length: 51 }, (_, i) => `chan-${i}`)
+    const ids = Array.from({ length: MAX_SELECTED_CHANNELS + 1 }, (_, i) => `UCchan-${i}`.padEnd(24, "x"))
 
     await expect(refreshSelectedChannelsAction(ids)).rejects.toThrow("Too many channels")
     expect(mockRefreshChannelLiveStatus).not.toHaveBeenCalled()
   })
 
   it("rejects malformed channel ids", async () => {
-    await expect(refreshSelectedChannelsAction(["chan-1", "../../etc"])).rejects.toThrow(
+    await expect(refreshSelectedChannelsAction(["UCchan-1xxxxxxxxxxxxxxxx", "../../etc"])).rejects.toThrow(
       "Invalid channel ids"
     )
     await expect(
-      refreshSelectedChannelsAction("chan-1" as unknown as string[])
+      refreshSelectedChannelsAction("UCchan-1xxxxxxxxxxxxxxxx" as unknown as string[])
     ).rejects.toThrow("Invalid channel ids")
     expect(mockRefreshChannelLiveStatus).not.toHaveBeenCalled()
+  })
+
+  it("serves cached-only search results with a message when rate limited", async () => {
+    mockIsRateLimited.mockResolvedValueOnce(true)
+    const payload = { query: "abc", channels: [], cached: true, source: "search" as const }
+    mockGetSearchResults.mockResolvedValueOnce(payload)
+
+    await expect(searchChannelsAction("abc")).resolves.toEqual({ ...payload, notice: "limited" })
+    expect(mockGetSearchResults).toHaveBeenCalledWith("abc", "all", true)
+  })
+
+  it("refreshes from the live cache only when rate limited", async () => {
+    mockIsRateLimited.mockResolvedValueOnce(true)
+    mockRefreshChannelLiveStatus.mockResolvedValue(null)
+    const id = "UCchan-1xxxxxxxxxxxxxxxx"
+
+    await expect(refreshSelectedChannelsAction([id])).resolves.toEqual([])
+    expect(mockRefreshChannelLiveStatus).toHaveBeenCalledWith(id, true)
   })
 })

@@ -166,8 +166,9 @@ export async function getChannelsByIds(channelIds: string[]) {
     .filter((channel): channel is BaseChannel => Boolean(channel));
 }
 
-// One search.list call per channel, so the live check costs no extra quota.
-// startedAt comes from the same response.
+// One search.list call per channel. That is 100 quota units per live check
+// (the default daily quota is 10,000), so callers must go through the live
+// cache. startedAt comes from the same response.
 export async function getLiveVideoForChannel(
   channelId: string,
 ): Promise<LiveStatus> {

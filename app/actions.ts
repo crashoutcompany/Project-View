@@ -1,8 +1,10 @@
 "use server"
 
 import { checkBotId } from "botid/server"
+import { headers } from "next/headers"
 
 import { MAX_QUERY_LENGTH, MAX_SELECTED_CHANNELS, parseChannelId } from "@/lib/cache-keys"
+import { isRateLimited, RATE_LIMITED_MESSAGE } from "@/lib/rate-limit"
 import { ChannelResult, PlatformFilter, SearchPayload } from "@/lib/types"
 import {
   getSearchResults,
@@ -39,6 +41,12 @@ export async function searchChannelsAction(
     }
   }
 
+  // Over the limit: cached results only, with a message instead of an error.
+  if (await isRateLimited(await headers())) {
+    const payload = await getSearchResults(query, platform, true)
+    return { ...payload, notice: RATE_LIMITED_MESSAGE }
+  }
+
   return getSearchResults(query, platform)
 }
 
@@ -67,8 +75,9 @@ export async function refreshSelectedChannelsAction(
     throw new Error("Invalid channel ids")
   }
   const uniqueIds = Array.from(new Set(parsedIds.map((parsed) => parsed.channelId)))
+  const cachedOnly = await isRateLimited(await headers())
   const channels = await Promise.all(
-    uniqueIds.map((channelId) => refreshChannelLiveStatus(channelId))
+    uniqueIds.map((channelId) => refreshChannelLiveStatus(channelId, cachedOnly))
   )
 
   return channels.filter((channel): channel is ChannelResult => Boolean(channel))

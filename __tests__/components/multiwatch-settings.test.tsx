@@ -109,75 +109,75 @@ describe("MultiwatchApp settings", () => {
   it("auto-removes a stream after two missed checks and undoes it", async () => {
     store({ autoRemoveOffline: true })
     renderApp({
-      initialSelectedChannels: [makeChannel("UCa", "live"), makeChannel("UCb", "live")],
+      initialSelectedChannels: [makeChannel("UCaxxxxxxxxxxxxxxxxxxxxx", "live"), makeChannel("UCbxxxxxxxxxxxxxxxxxxxxx", "live")],
     })
     mockRefreshSelectedChannelsAction.mockResolvedValue([
-      makeChannel("UCa", "offline"),
-      makeChannel("UCb", "live"),
+      makeChannel("UCaxxxxxxxxxxxxxxxxxxxxx", "offline"),
+      makeChannel("UCbxxxxxxxxxxxxxxxxxxxxx", "live"),
     ])
 
     await refresh()
-    expect(grid().channelIds).toEqual(["UCa", "UCb"])
+    expect(grid().channelIds).toEqual(["UCaxxxxxxxxxxxxxxxxxxxxx", "UCbxxxxxxxxxxxxxxxxxxxxx"])
 
     await refresh()
-    expect(grid().channelIds).toEqual(["UCb"])
-    expect(window.location.search).toBe("?channels=UCb")
-    expect(screen.getByRole("status")).toHaveTextContent("Channel UCa went offline")
+    expect(grid().channelIds).toEqual(["UCbxxxxxxxxxxxxxxxxxxxxx"])
+    expect(window.location.search).toBe("?channels=UCbxxxxxxxxxxxxxxxxxxxxx")
+    expect(screen.getByRole("status")).toHaveTextContent("Channel UCaxxxxxxxxxxxxxxxxxxxxx went offline")
 
     fireEvent.click(screen.getByRole("button", { name: "Undo" }))
-    expect(grid().channelIds).toEqual(["UCb", "UCa"])
+    expect(grid().channelIds).toEqual(["UCbxxxxxxxxxxxxxxxxxxxxx", "UCaxxxxxxxxxxxxxxxxxxxxx"])
     expect(screen.queryByRole("status")).not.toBeInTheDocument()
 
     // Restored streams are not removed again until they have been live.
     await refresh()
     await refresh()
-    expect(grid().channelIds.toSorted()).toEqual(["UCa", "UCb"])
+    expect(grid().channelIds.toSorted()).toEqual(["UCaxxxxxxxxxxxxxxxxxxxxx", "UCbxxxxxxxxxxxxxxxxxxxxx"])
   })
 
   it("keeps offline streams when auto-remove is off", async () => {
-    renderApp({ initialSelectedChannels: [makeChannel("UCa", "live")] })
-    mockRefreshSelectedChannelsAction.mockResolvedValue([makeChannel("UCa", "offline")])
+    renderApp({ initialSelectedChannels: [makeChannel("UCaxxxxxxxxxxxxxxxxxxxxx", "live")] })
+    mockRefreshSelectedChannelsAction.mockResolvedValue([makeChannel("UCaxxxxxxxxxxxxxxxxxxxxx", "offline")])
 
     await refresh()
     await refresh()
     await refresh()
-    expect(grid().channelIds).toEqual(["UCa"])
+    expect(grid().channelIds).toEqual(["UCaxxxxxxxxxxxxxxxxxxxxx"])
   })
 
   it("reopens the last streams when the URL has none", async () => {
-    store({ rememberLastStreams: true, lastChannelIds: ["UCa", "UCb"] })
+    store({ rememberLastStreams: true, lastChannelIds: ["UCaxxxxxxxxxxxxxxxxxxxxx", "UCbxxxxxxxxxxxxxxxxxxxxx"] })
     mockRefreshSelectedChannelsAction.mockResolvedValue([
-      makeChannel("UCa", "offline"),
-      makeChannel("UCb", "live"),
+      makeChannel("UCaxxxxxxxxxxxxxxxxxxxxx", "offline"),
+      makeChannel("UCbxxxxxxxxxxxxxxxxxxxxx", "live"),
     ])
 
     renderApp()
 
-    await waitFor(() => expect(grid().channelIds).toEqual(["UCa", "UCb"]))
-    expect(mockRefreshSelectedChannelsAction).toHaveBeenCalledWith(["UCa", "UCb"])
-    expect(grid().activeAudioChannelId).toBe("UCb")
-    expect(window.location.search).toBe("?channels=UCa%2CUCb")
+    await waitFor(() => expect(grid().channelIds).toEqual(["UCaxxxxxxxxxxxxxxxxxxxxx", "UCbxxxxxxxxxxxxxxxxxxxxx"]))
+    expect(mockRefreshSelectedChannelsAction).toHaveBeenCalledWith(["UCaxxxxxxxxxxxxxxxxxxxxx", "UCbxxxxxxxxxxxxxxxxxxxxx"])
+    expect(grid().activeAudioChannelId).toBe("UCbxxxxxxxxxxxxxxxxxxxxx")
+    expect(window.location.search).toBe("?channels=UCaxxxxxxxxxxxxxxxxxxxxx%2CUCbxxxxxxxxxxxxxxxxxxxxx")
   })
 
   it("does not restore over a shared link", () => {
-    store({ rememberLastStreams: true, lastChannelIds: ["UCa"] })
-    window.history.pushState({}, "", "/?channels=UCz")
-    renderApp({ initialSelectedChannels: [makeChannel("UCz", "live")] })
+    store({ rememberLastStreams: true, lastChannelIds: ["UCaxxxxxxxxxxxxxxxxxxxxx"] })
+    window.history.pushState({}, "", "/?channels=UCzxxxxxxxxxxxxxxxxxxxxx")
+    renderApp({ initialSelectedChannels: [makeChannel("UCzxxxxxxxxxxxxxxxxxxxxx", "live")] })
 
     expect(mockRefreshSelectedChannelsAction).not.toHaveBeenCalled()
   })
 
   it("remembers the current streams when the setting is on", () => {
     store({ rememberLastStreams: true })
-    renderApp({ initialSelectedChannels: [makeChannel("UCz", "live")] })
+    renderApp({ initialSelectedChannels: [makeChannel("UCzxxxxxxxxxxxxxxxxxxxxx", "live")] })
 
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}").lastChannelIds).toEqual([
-      "UCz",
+      "UCzxxxxxxxxxxxxxxxxxxxxx",
     ])
   })
 
   it("forgets the remembered streams when the setting is turned off", () => {
-    store({ rememberLastStreams: false, lastChannelIds: ["UCa"] })
+    store({ rememberLastStreams: false, lastChannelIds: ["UCaxxxxxxxxxxxxxxxxxxxxx"] })
     renderApp()
 
     expect(mockRefreshSelectedChannelsAction).not.toHaveBeenCalled()

@@ -44,6 +44,8 @@ type MultiwatchAppProps = {
   initialSelectedChannels: ChannelResult[];
   initialUpdatedAt: string;
   configured: boolean;
+  // Shown in the sidebar, e.g. when the visitor is rate limited.
+  notice?: string;
   platforms: Platform[];
   // Hosts the Twitch player must allow as `parent`, from the request.
   twitchParents: string[];
@@ -105,10 +107,12 @@ export function MultiwatchApp({
   initialSelectedChannels,
   initialUpdatedAt,
   configured,
+  notice: initialNotice,
   platforms,
   twitchParents,
 }: MultiwatchAppProps) {
   const [query, setQuery] = React.useState(initialQuery);
+  const [notice, setNotice] = React.useState(initialNotice);
   const [platformFilter, setPlatformFilter] =
     React.useState<PlatformFilterValue>("all");
   const [seedResults, setSeedResults] = React.useState(initialSeedResults);
@@ -206,6 +210,7 @@ export function MultiwatchApp({
             nextPlatform,
           );
 
+          setNotice(payload.notice);
           setResults(payload.channels);
           setSeedResults((current) =>
             dedupeChannels([...payload.channels, ...current]).slice(0, 8),
@@ -628,6 +633,12 @@ export function MultiwatchApp({
                 onChange={handlePlatformChange}
               />
 
+              {notice ? (
+                <p role="status" className="text-xs text-muted-foreground">
+                  {notice}
+                </p>
+              ) : null}
+
               <div className="text-[10px] text-muted-foreground/60">
                 Updated {new Date(lastUpdated).toLocaleTimeString()}
               </div>
@@ -646,7 +657,7 @@ export function MultiwatchApp({
               <ChannelResults
                 title={query.trim() ? "Results" : "Suggestions"}
                 description={
-                  query.trim() ? "Matched channels." : "From recent searches."
+                  query.trim() ? "Matched channels." : "Suggested channels."
                 }
                 channels={unselectedResults}
                 selectedIds={selectedIds}

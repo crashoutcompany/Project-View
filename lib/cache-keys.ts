@@ -12,12 +12,14 @@ export const SEEDED_CHANNEL_LIMIT = 8
 // Inputs come from public URLs and server actions, and each uncached channel
 // id or query costs YouTube quota or a Twitch call, so bound them. The cap
 // covers both platforms combined.
-export const MAX_SELECTED_CHANNELS = 50
+export const MAX_SELECTED_CHANNELS = 12
 export const MAX_QUERY_LENGTH = 100
 
 export const TWITCH_ID_PREFIX = "tw:"
 export const YOUTUBE_ID_PREFIX = "yt:"
-const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/
+// Real channel ids only: "UC" plus 22 characters. Anything else can never
+// resolve, so it must not be able to mint cache misses.
+const YOUTUBE_ID_PATTERN = /^UC[\w-]{22}$/
 const TWITCH_USER_ID_PATTERN = /^\d{1,20}$/
 
 export type ParsedChannelId = {

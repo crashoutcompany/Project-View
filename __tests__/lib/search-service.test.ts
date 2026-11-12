@@ -11,7 +11,6 @@ import {
   LIVE_CACHE_TTL_OFFLINE_SECONDS,
   SEARCH_CACHE_TTL_SECONDS,
   SEARCH_RESULT_LIMIT,
-  SEED_CACHE_TTL_SECONDS,
   channelCacheKey,
   liveCacheKey,
   searchCacheKey,
@@ -110,7 +109,7 @@ describe("search service", () => {
       }))
     )
     mockGetLiveVideoForChannel.mockImplementation(async (channelId: string) =>
-      channelId === "chan-1"
+      channelId === "UCchan-1xxxxxxxxxxxxxxxx"
         ? {
             status: "live",
             checkedAt: "now",
@@ -124,7 +123,7 @@ describe("search service", () => {
     const [, , selected] = await Promise.all([
       getSeedResults(),
       getSearchResults(""),
-      getSelectedChannels(["chan-1", "chan-2"]),
+      getSelectedChannels(["UCchan-1xxxxxxxxxxxxxxxx", "UCchan-2xxxxxxxxxxxxxxxx"]),
     ])
 
     expect(mockSearchChannels).not.toHaveBeenCalled()
@@ -140,16 +139,16 @@ describe("search service", () => {
     const redis = createRedisMock()
     mockGetRedis.mockReturnValue(redis)
     redis.get.mockImplementation(async (key: string) => {
-      if (key === channelCacheKey("chan-1")) {
-        return { platform: "youtube", channelId: "chan-1", title: "One", description: "", thumbnailUrl: "" }
+      if (key === channelCacheKey("UCchan-1xxxxxxxxxxxxxxxx")) {
+        return { platform: "youtube", channelId: "UCchan-1xxxxxxxxxxxxxxxx", title: "One", description: "", thumbnailUrl: "" }
       }
-      if (key === liveCacheKey("chan-1")) {
+      if (key === liveCacheKey("UCchan-1xxxxxxxxxxxxxxxx")) {
         return { status: "live", checkedAt: "x", videoId: "v", startedAt: "cached-start" }
       }
       return null
     })
 
-    const selected = await getSelectedChannels(["chan-1"])
+    const selected = await getSelectedChannels(["UCchan-1xxxxxxxxxxxxxxxx"])
 
     expect(selected[0]?.live.startedAt).toBe("cached-start")
     expect(mockGetChannelsByIds).not.toHaveBeenCalled()
@@ -187,7 +186,7 @@ describe("search service", () => {
         return [
           {
             platform: "youtube",
-            channelId: "chan-1",
+            channelId: "UCchan-1xxxxxxxxxxxxxxxx",
             title: "Seeded",
             description: "Ready",
             thumbnailUrl: "seed.jpg",
@@ -195,7 +194,7 @@ describe("search service", () => {
         ]
       }
 
-      if (key === liveCacheKey("chan-1")) {
+      if (key === liveCacheKey("UCchan-1xxxxxxxxxxxxxxxx")) {
         return {
           status: "live",
           checkedAt: "2026-03-06T00:00:00.000Z",
@@ -211,7 +210,7 @@ describe("search service", () => {
       channels: [
         {
           platform: "youtube",
-          channelId: "chan-1",
+          channelId: "UCchan-1xxxxxxxxxxxxxxxx",
           title: "Seeded",
           description: "Ready",
           thumbnailUrl: "seed.jpg",
@@ -237,7 +236,7 @@ describe("search service", () => {
         return [
           {
             platform: "youtube",
-            channelId: "seed-existing",
+            channelId: "UCseed-existingxxxxxxxxx",
             title: "Existing Seed",
             description: "Existing",
             thumbnailUrl: "seed-existing.jpg",
@@ -251,7 +250,7 @@ describe("search service", () => {
     mockSearchChannels.mockResolvedValue(
       Array.from({ length: SEARCH_RESULT_LIMIT + 1 }, (_, index) => ({
         platform: "youtube",
-        channelId: `chan-${index + 1}`,
+        channelId: `UCchan-${index + 1}`.padEnd(24, "x"),
         title: `Channel ${index + 1}`,
         description: `Description ${index + 1}`,
         thumbnailUrl: `thumb-${index + 1}.jpg`,
@@ -259,9 +258,9 @@ describe("search service", () => {
     )
 
     mockGetLiveVideoForChannel.mockImplementation(async (channelId: string) => ({
-      status: channelId === "chan-1" ? "live" : "offline",
+      status: channelId === "UCchan-1xxxxxxxxxxxxxxxx" ? "live" : "offline",
       checkedAt: `${channelId}-checked`,
-      ...(channelId === "chan-1" ? { videoId: "video-1" } : {}),
+      ...(channelId === "UCchan-1xxxxxxxxxxxxxxxx" ? { videoId: "video-1" } : {}),
     }))
 
     const payload = await getSearchResults("  @Crash   Out  ")
@@ -279,28 +278,22 @@ describe("search service", () => {
       { ex: SEARCH_CACHE_TTL_SECONDS }
     )
     expect(redis.set).toHaveBeenCalledWith(
-      channelCacheKey("chan-1"),
-      expect.objectContaining({ channelId: "chan-1" }),
+      channelCacheKey("UCchan-1xxxxxxxxxxxxxxxx"),
+      expect.objectContaining({ channelId: "UCchan-1xxxxxxxxxxxxxxxx" }),
       { ex: CHANNEL_CACHE_TTL_SECONDS }
     )
     expect(redis.set).toHaveBeenCalledWith(
-      liveCacheKey("chan-1"),
+      liveCacheKey("UCchan-1xxxxxxxxxxxxxxxx"),
       expect.objectContaining({ status: "live", videoId: "video-1" }),
       { ex: LIVE_CACHE_TTL_LIVE_SECONDS }
     )
     expect(redis.set).toHaveBeenCalledWith(
-      liveCacheKey("chan-2"),
+      liveCacheKey("UCchan-2xxxxxxxxxxxxxxxx"),
       expect.objectContaining({ status: "offline" }),
       { ex: LIVE_CACHE_TTL_OFFLINE_SECONDS }
     )
-    expect(redis.set).toHaveBeenCalledWith(
-      seedCacheKey,
-      expect.arrayContaining([
-        expect.objectContaining({ channelId: "chan-1" }),
-        expect.objectContaining({ channelId: "seed-existing" }),
-      ]),
-      { ex: SEED_CACHE_TTL_SECONDS }
-    )
+    // GET/search never rewrites the shared suggestions list.
+    expect(redis.set).not.toHaveBeenCalledWith(seedCacheKey, expect.anything(), expect.anything())
   })
 
   it("uses cached search results when available", async () => {
@@ -308,7 +301,7 @@ describe("search service", () => {
     const cachedChannels = [
       {
         platform: "youtube",
-        channelId: "chan-1",
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
         title: "Cached",
         description: "Cached description",
         thumbnailUrl: "cached.jpg",
@@ -325,7 +318,7 @@ describe("search service", () => {
         return []
       }
 
-      if (key === liveCacheKey("chan-1")) {
+      if (key === liveCacheKey("UCchan-1xxxxxxxxxxxxxxxx")) {
         return {
           status: "offline",
           checkedAt: "cached-live",
@@ -351,11 +344,7 @@ describe("search service", () => {
     })
 
     expect(mockSearchChannels).not.toHaveBeenCalled()
-    expect(redis.set).toHaveBeenCalledWith(
-      seedCacheKey,
-      expect.any(Array),
-      { ex: SEED_CACHE_TTL_SECONDS }
-    )
+    expect(redis.set).not.toHaveBeenCalledWith(seedCacheKey, expect.anything(), expect.anything())
   })
 
   it("still returns search results when Redis is unavailable", async () => {
@@ -363,7 +352,7 @@ describe("search service", () => {
     mockSearchChannels.mockResolvedValue([
       {
         platform: "youtube",
-        channelId: "chan-1",
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
         title: "Channel One",
         description: "Desc",
         thumbnailUrl: "thumb.jpg",
@@ -379,7 +368,7 @@ describe("search service", () => {
       channels: [
         {
           platform: "youtube",
-          channelId: "chan-1",
+          channelId: "UCchan-1xxxxxxxxxxxxxxxx",
           title: "Channel One",
           description: "Desc",
           thumbnailUrl: "thumb.jpg",
@@ -397,7 +386,7 @@ describe("search service", () => {
   it("deduplicates selected channels and filters missing lookups", async () => {
     mockGetRedis.mockReturnValue(null)
     mockGetChannelsByIds.mockImplementation(async ([channelId]: string[]) => {
-      if (channelId === "missing") {
+      if (channelId === "UCmissingxxxxxxxxxxxxxxx") {
         return []
       }
 
@@ -417,28 +406,28 @@ describe("search service", () => {
     }))
 
     await expect(
-      getSelectedChannels(["chan-1", "chan-1", "", "missing", "chan-2"])
+      getSelectedChannels(["UCchan-1xxxxxxxxxxxxxxxx", "UCchan-1xxxxxxxxxxxxxxxx", "", "UCmissingxxxxxxxxxxxxxxx", "UCchan-2xxxxxxxxxxxxxxxx"])
     ).resolves.toEqual([
       {
         platform: "youtube",
-        channelId: "chan-1",
-        title: "Title chan-1",
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
+        title: "Title UCchan-1xxxxxxxxxxxxxxxx",
         description: "",
-        thumbnailUrl: "chan-1.jpg",
+        thumbnailUrl: "UCchan-1xxxxxxxxxxxxxxxx.jpg",
         live: {
           status: "offline",
-          checkedAt: "chan-1-checked",
+          checkedAt: "UCchan-1xxxxxxxxxxxxxxxx-checked",
         },
       },
       {
         platform: "youtube",
-        channelId: "chan-2",
-        title: "Title chan-2",
+        channelId: "UCchan-2xxxxxxxxxxxxxxxx",
+        title: "Title UCchan-2xxxxxxxxxxxxxxxx",
         description: "",
-        thumbnailUrl: "chan-2.jpg",
+        thumbnailUrl: "UCchan-2xxxxxxxxxxxxxxxx.jpg",
         live: {
           status: "offline",
-          checkedAt: "chan-2-checked",
+          checkedAt: "UCchan-2xxxxxxxxxxxxxxxx-checked",
         },
       },
     ])
@@ -452,7 +441,7 @@ describe("search service", () => {
     mockGetChannelsByIds.mockResolvedValue([
       {
         platform: "youtube",
-        channelId: "chan-1",
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
         title: "Channel One",
         description: "",
         thumbnailUrl: "chan-1.jpg",
@@ -464,11 +453,11 @@ describe("search service", () => {
       videoId: "video-1",
     })
 
-    const payload = await refreshChannelLiveStatus("chan-1")
+    const payload = await refreshChannelLiveStatus("UCchan-1xxxxxxxxxxxxxxxx")
 
     expect(payload).toEqual({
       platform: "youtube",
-      channelId: "chan-1",
+      channelId: "UCchan-1xxxxxxxxxxxxxxxx",
       title: "Channel One",
       description: "",
       thumbnailUrl: "chan-1.jpg",
@@ -479,10 +468,46 @@ describe("search service", () => {
       },
     })
     expect(redis.set).toHaveBeenCalledWith(
-      liveCacheKey("chan-1"),
+      liveCacheKey("UCchan-1xxxxxxxxxxxxxxxx"),
       expect.objectContaining({ status: "live", videoId: "video-1" }),
       { ex: LIVE_CACHE_TTL_LIVE_SECONDS }
     )
+  })
+
+  it("does not call YouTube when refreshing a channel with a cached live status", async () => {
+    const redis = createRedisMock()
+    mockGetRedis.mockReturnValue(redis)
+    const id = "UCchan-1xxxxxxxxxxxxxxxx"
+    redis.get.mockImplementation(async (key: string) => {
+      if (key === channelCacheKey(id)) {
+        return { platform: "youtube", channelId: id, title: "One", description: "", thumbnailUrl: "" }
+      }
+      if (key === liveCacheKey(id)) {
+        return { status: "live", checkedAt: "cached", videoId: "v" }
+      }
+      return null
+    })
+
+    const payload = await refreshChannelLiveStatus(id)
+
+    expect(payload?.live).toMatchObject({ status: "live", checkedAt: "cached" })
+    expect(mockGetLiveVideoForChannel).not.toHaveBeenCalled()
+  })
+
+  it("never calls YouTube in cached-only mode", async () => {
+    mockGetRedis.mockReturnValue(createRedisMock())
+    const id = "UCchan-1xxxxxxxxxxxxxxxx"
+
+    const refreshed = await refreshChannelLiveStatus(id, true)
+    const selected = await getSelectedChannels([id], true)
+    const search = await getSearchResults("anything", "all", true)
+
+    expect(refreshed?.live.status).toBe("unknown")
+    expect(selected[0]?.live.status).toBe("unknown")
+    expect(search.channels).toEqual([])
+    expect(mockGetChannelsByIds).not.toHaveBeenCalled()
+    expect(mockSearchChannels).not.toHaveBeenCalled()
+    expect(mockGetLiveVideoForChannel).not.toHaveBeenCalled()
   })
 
   it("returns null when a refreshed channel cannot be found", async () => {
@@ -501,7 +526,7 @@ describe("search service", () => {
     redis.set.mockRejectedValue(outage)
     mockGetRedis.mockReturnValue(redis)
     mockSearchChannels.mockResolvedValue([
-      { platform: "youtube", channelId: "chan-1", title: "Channel One", description: "", thumbnailUrl: "" },
+      { platform: "youtube", channelId: "UCchan-1xxxxxxxxxxxxxxxx", title: "Channel One", description: "", thumbnailUrl: "" },
     ])
     mockGetLiveVideoForChannel.mockResolvedValue({
       status: "offline",
@@ -511,13 +536,13 @@ describe("search service", () => {
     await expect(getSearchResults("channel")).resolves.toMatchObject({
       query: "channel",
       cached: false,
-      channels: [{ channelId: "chan-1", live: { status: "offline" } }],
+      channels: [{ channelId: "UCchan-1xxxxxxxxxxxxxxxx", live: { status: "offline" } }],
     })
     mockGetChannelsByIds.mockResolvedValue([
-      { platform: "youtube", channelId: "chan-2", title: "Channel Two", description: "", thumbnailUrl: "" },
+      { platform: "youtube", channelId: "UCchan-2xxxxxxxxxxxxxxxx", title: "Channel Two", description: "", thumbnailUrl: "" },
     ])
-    await expect(getSelectedChannels(["chan-2"])).resolves.toMatchObject([
-      { channelId: "chan-2", live: { status: "offline" } },
+    await expect(getSelectedChannels(["UCchan-2xxxxxxxxxxxxxxxx"])).resolves.toMatchObject([
+      { channelId: "UCchan-2xxxxxxxxxxxxxxxx", live: { status: "offline" } },
     ])
     expect(mockSearchChannels).toHaveBeenCalledTimes(1)
     expect(console.warn).toHaveBeenCalledTimes(1)
@@ -545,18 +570,18 @@ describe("search service", () => {
     it("keeps selected channels with an unknown live state and does not cache it", async () => {
       const redis = createRedisMock()
       redis.get.mockImplementation(async (key: string) =>
-        key === channelCacheKey("chan-1")
-          ? { platform: "youtube", channelId: "chan-1", title: "Cached", description: "", thumbnailUrl: "c.jpg" }
+        key === channelCacheKey("UCchan-1xxxxxxxxxxxxxxxx")
+          ? { platform: "youtube", channelId: "UCchan-1xxxxxxxxxxxxxxxx", title: "Cached", description: "", thumbnailUrl: "c.jpg" }
           : null
       )
       mockGetRedis.mockReturnValue(redis)
       mockGetChannelsByIds.mockRejectedValue(quotaError)
       mockGetLiveVideoForChannel.mockRejectedValue(quotaError)
 
-      await expect(getSelectedChannels(["chan-1", "chan-2"])).resolves.toEqual([
+      await expect(getSelectedChannels(["UCchan-1xxxxxxxxxxxxxxxx", "UCchan-2xxxxxxxxxxxxxxxx"])).resolves.toEqual([
         {
           platform: "youtube",
-          channelId: "chan-1",
+          channelId: "UCchan-1xxxxxxxxxxxxxxxx",
           title: "Cached",
           description: "",
           thumbnailUrl: "c.jpg",
@@ -564,8 +589,8 @@ describe("search service", () => {
         },
         {
           platform: "youtube",
-          channelId: "chan-2",
-          title: "chan-2",
+          channelId: "UCchan-2xxxxxxxxxxxxxxxx",
+          title: "UCchan-2xxxxxxxxxxxxxxxx",
           description: "",
           thumbnailUrl: "",
           live: { status: "unknown", checkedAt: expect.any(String) },
@@ -580,8 +605,8 @@ describe("search service", () => {
       mockGetChannelsByIds.mockRejectedValue(quotaError)
       mockGetLiveVideoForChannel.mockRejectedValue(quotaError)
 
-      await expect(refreshChannelLiveStatus("chan-1")).resolves.toMatchObject({
-        channelId: "chan-1",
+      await expect(refreshChannelLiveStatus("UCchan-1xxxxxxxxxxxxxxxx")).resolves.toMatchObject({
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
         live: { status: "unknown" },
       })
     })

@@ -14,7 +14,7 @@ function stored() {
 
 function openPanel(props: Partial<React.ComponentProps<typeof SettingsPanel>> = {}) {
   const onOpenGroup = vi.fn()
-  render(<SettingsPanel currentChannelIds={["UCabc", "tw:1"]} onOpenGroup={onOpenGroup} {...props} />)
+  render(<SettingsPanel currentChannelIds={["UCabcxxxxxxxxxxxxxxxxxxx", "tw:1"]} onOpenGroup={onOpenGroup} {...props} />)
   fireEvent.click(screen.getByRole("button", { name: "Settings" }))
   return { onOpenGroup, dialog: screen.getByRole("dialog", { name: "Settings" }) }
 }
@@ -78,7 +78,7 @@ describe("SettingsPanel", () => {
     fireEvent.change(within(dialog).getByLabelText("Group name"), { target: { value: "Main wall" } })
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }))
     expect(stored().savedGroups).toEqual([
-      { id: expect.any(String), name: "Main wall", channelIds: ["UCabc", "tw:1"] },
+      { id: expect.any(String), name: "Main wall", channelIds: ["UCabcxxxxxxxxxxxxxxxxxxx", "tw:1"] },
     ])
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Rename Main wall" }))
@@ -89,7 +89,7 @@ describe("SettingsPanel", () => {
     expect(stored().savedGroups[0].name).toBe("Weekend")
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Open Weekend" }))
-    expect(onOpenGroup).toHaveBeenCalledWith(["UCabc", "tw:1"])
+    expect(onOpenGroup).toHaveBeenCalledWith(["UCabcxxxxxxxxxxxxxxxxxxx", "tw:1"])
     // Opening a group closes the panel.
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
 

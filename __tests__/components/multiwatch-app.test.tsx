@@ -113,7 +113,7 @@ beforeAll(async () => {
 function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
   return {
     platform: "youtube",
-    channelId: "chan-1",
+    channelId: "UCchan-1xxxxxxxxxxxxxxxx",
     title: "Channel One",
     description: "Description",
     thumbnailUrl: "thumb.jpg",
@@ -161,7 +161,7 @@ describe("MultiwatchApp", () => {
     renderApp({
       platforms: ["youtube", "twitch"],
       initialSeedResults: [
-        makeChannel({ channelId: "chan-yt", title: "YouTube Seed" }),
+        makeChannel({ channelId: "UCchan-ytxxxxxxxxxxxxxxx", title: "YouTube Seed" }),
         makeChannel({
           platform: "twitch",
           channelId: "tw:123",
@@ -196,7 +196,7 @@ describe("MultiwatchApp", () => {
     vi.useFakeTimers()
     mockSearchChannelsAction.mockResolvedValueOnce({
       query: "alpha",
-      channels: [makeChannel({ channelId: "chan-2", title: "Result Two" })],
+      channels: [makeChannel({ channelId: "UCchan-2xxxxxxxxxxxxxxxx", title: "Result Two" })],
       cached: false,
       source: "search",
     })
@@ -225,15 +225,15 @@ describe("MultiwatchApp", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add first result" }))
 
-    expect(screen.getByTestId("live-grid")).toHaveTextContent('"channelIds":["chan-1"]')
+    expect(screen.getByTestId("live-grid")).toHaveTextContent('"channelIds":["UCchan-1xxxxxxxxxxxxxxxx"]')
     expect(screen.getByTestId("live-grid")).toHaveTextContent(
-      '"activeAudioChannelId":"chan-1"'
+      '"activeAudioChannelId":"UCchan-1xxxxxxxxxxxxxxxx"'
     )
-    expect(window.location.search).toBe("?channels=chan-1")
+    expect(window.location.search).toBe("?channels=UCchan-1xxxxxxxxxxxxxxxx")
 
     fireEvent.click(
       within(screen.getByRole("region", { name: "Selected" })).getByRole("button", {
-        name: "Remove chan-1",
+        name: "Remove UCchan-1xxxxxxxxxxxxxxxx",
       })
     )
 
@@ -244,7 +244,7 @@ describe("MultiwatchApp", () => {
   it("refreshes selected channels and applies the returned state", async () => {
     mockRefreshSelectedChannelsAction.mockResolvedValueOnce([
       makeChannel({
-        channelId: "chan-1",
+        channelId: "UCchan-1xxxxxxxxxxxxxxxx",
         title: "Channel One Updated",
         live: {
           status: "live",
@@ -261,7 +261,7 @@ describe("MultiwatchApp", () => {
     fireEvent.click(screen.getByLabelText("Refresh live state"))
 
     await waitFor(() => {
-      expect(mockRefreshSelectedChannelsAction).toHaveBeenCalledWith(["chan-1"])
+      expect(mockRefreshSelectedChannelsAction).toHaveBeenCalledWith(["UCchan-1xxxxxxxxxxxxxxxx"])
     })
     await waitFor(() => {
       expect(screen.getAllByText("Channel One Updated").length).toBeGreaterThan(0)
@@ -269,19 +269,19 @@ describe("MultiwatchApp", () => {
   })
 
   it("lists live channels first in the sidebar but keeps the grid order", () => {
-    const offline = makeChannel({ channelId: "chan-off", title: "Offline One" })
+    const offline = makeChannel({ channelId: "UCchan-offxxxxxxxxxxxxxx", title: "Offline One" })
     const liveSmall = makeChannel({
-      channelId: "chan-live-small",
+      channelId: "UCchan-live-smallxxxxxxx",
       title: "Live Small",
       live: { status: "live", checkedAt: "x", videoId: "v1" },
     })
     const liveBig = makeChannel({
-      channelId: "chan-live-big",
+      channelId: "UCchan-live-bigxxxxxxxxx",
       title: "Live Big",
       live: { status: "live", checkedAt: "x", videoId: "v2" },
     })
     const unknown = makeChannel({
-      channelId: "chan-unknown",
+      channelId: "UCchan-unknownxxxxxxxxxx",
       title: "Unknown One",
       live: { status: "unknown", checkedAt: "x" },
     })
@@ -299,25 +299,25 @@ describe("MultiwatchApp", () => {
     expect(titlesIn("Selected")).toEqual(["Live Small", "Live Big", "Offline One"])
     expect(titlesIn("Suggestions")).toEqual(["Unknown One"])
     expect(screen.getByTestId("live-grid")).toHaveTextContent(
-      '"channelIds":["chan-off","chan-live-small","chan-live-big"]'
+      '"channelIds":["UCchan-offxxxxxxxxxxxxxx","UCchan-live-smallxxxxxxx","UCchan-live-bigxxxxxxxxx"]'
     )
   })
 
   it("leaves selected channels out of suggestions and results, keeping live first", async () => {
     vi.useFakeTimers()
-    const offline = makeChannel({ channelId: "chan-off", title: "Offline One" })
+    const offline = makeChannel({ channelId: "UCchan-offxxxxxxxxxxxxxx", title: "Offline One" })
     const unknown = makeChannel({
-      channelId: "chan-unknown",
+      channelId: "UCchan-unknownxxxxxxxxxx",
       title: "Unknown One",
       live: { status: "unknown", checkedAt: "x" },
     })
     const liveSmall = makeChannel({
-      channelId: "chan-live-small",
+      channelId: "UCchan-live-smallxxxxxxx",
       title: "Live Small",
       live: { status: "live", checkedAt: "x", videoId: "v1" },
     })
     const liveBig = makeChannel({
-      channelId: "chan-live-big",
+      channelId: "UCchan-live-bigxxxxxxxxx",
       title: "Live Big",
       live: { status: "live", checkedAt: "x", videoId: "v2" },
     })
@@ -408,7 +408,7 @@ describe("MultiwatchApp", () => {
 
     fireEvent.click(
       within(screen.getByRole("region", { name: "Selected" })).getByRole("button", {
-        name: "Remove chan-1",
+        name: "Remove UCchan-1xxxxxxxxxxxxxxxx",
       })
     )
 
