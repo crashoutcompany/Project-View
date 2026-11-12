@@ -11,8 +11,8 @@ import {
 import { ChannelResult } from "@/lib/types"
 import { readSettings, updateSettings, useSettings } from "@/lib/use-settings"
 
-// Live checks while auto-remove is on. Live status is cached for 60s on the
-// server, so this mostly reads the cache rather than spending API quota.
+// Live checks while auto-remove is on. They read the server's live cache
+// (60s while live, 10 min while offline), so most polls cost no API quota.
 export const LIVE_CHECK_INTERVAL_MS = 90_000
 const UNDO_TOAST_MS = 10_000
 

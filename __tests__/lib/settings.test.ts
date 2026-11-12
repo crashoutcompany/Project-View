@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import { MAX_SELECTED_CHANNELS } from "@/lib/cache-keys"
+
 import {
   addGroup,
   DEFAULT_SETTINGS,
@@ -39,7 +41,7 @@ describe("settings store", () => {
       gridLayout: "featured" as const,
       streamFit: "fill" as const,
       rememberLastStreams: true,
-      lastChannelIds: ["UCabc", "tw:123"],
+      lastChannelIds: ["UCabcxxxxxxxxxxxxxxxxxxx", "tw:123"],
       savedGroups: [{ id: "g1", name: "Speedruns", channelIds: ["tw:42"] }],
     }
 
@@ -74,34 +76,34 @@ describe("settings store", () => {
 
   it("drops invalid and duplicate channel ids and caps the list", () => {
     const migrated = migrateSettings({
-      lastChannelIds: ["UCabc", "UCabc", "tw:abc", "bad id!", 7, "tw:9"],
+      lastChannelIds: ["UCabcxxxxxxxxxxxxxxxxxxx", "UCabcxxxxxxxxxxxxxxxxxxx", "tw:abc", "bad id!", 7, "tw:9"],
     })
-    expect(migrated.lastChannelIds).toEqual(["UCabc", "tw:9"])
+    expect(migrated.lastChannelIds).toEqual(["UCabcxxxxxxxxxxxxxxxxxxx", "tw:9"])
 
-    const many = Array.from({ length: 80 }, (_, index) => `UC${index}`)
-    expect(migrateSettings({ lastChannelIds: many }).lastChannelIds).toHaveLength(50)
+    const many = Array.from({ length: 80 }, (_, index) => `UC${String(index).padStart(22, "0")}`)
+    expect(migrateSettings({ lastChannelIds: many }).lastChannelIds).toHaveLength(MAX_SELECTED_CHANNELS)
   })
 
   it("drops broken saved groups and trims names", () => {
     const migrated = migrateSettings({
       savedGroups: [
-        { id: "a", name: "  Main   wall ", channelIds: ["UCabc"] },
-        { id: "a", name: "Duplicate id", channelIds: ["UCabc"] },
-        { id: "b", name: "", channelIds: ["UCabc"] },
+        { id: "a", name: "  Main   wall ", channelIds: ["UCabcxxxxxxxxxxxxxxxxxxx"] },
+        { id: "a", name: "Duplicate id", channelIds: ["UCabcxxxxxxxxxxxxxxxxxxx"] },
+        { id: "b", name: "", channelIds: ["UCabcxxxxxxxxxxxxxxxxxxx"] },
         { id: "c", name: "No channels", channelIds: ["bad id!"] },
-        { name: "No id", channelIds: ["UCabc"] },
+        { name: "No id", channelIds: ["UCabcxxxxxxxxxxxxxxxxxxx"] },
         "nope",
       ],
     })
 
-    expect(migrated.savedGroups).toEqual([{ id: "a", name: "Main wall", channelIds: ["UCabc"] }])
+    expect(migrated.savedGroups).toEqual([{ id: "a", name: "Main wall", channelIds: ["UCabcxxxxxxxxxxxxxxxxxxx"] }])
   })
 })
 
 describe("saved groups", () => {
   it("creates, renames and deletes groups", () => {
-    let settings = addGroup(DEFAULT_SETTINGS, " Friday ", ["UCabc", "tw:1"], "g1")
-    expect(settings.savedGroups).toEqual([{ id: "g1", name: "Friday", channelIds: ["UCabc", "tw:1"] }])
+    let settings = addGroup(DEFAULT_SETTINGS, " Friday ", ["UCabcxxxxxxxxxxxxxxxxxxx", "tw:1"], "g1")
+    expect(settings.savedGroups).toEqual([{ id: "g1", name: "Friday", channelIds: ["UCabcxxxxxxxxxxxxxxxxxxx", "tw:1"] }])
 
     settings = renameGroup(settings, "g1", "Saturday")
     expect(settings.savedGroups[0].name).toBe("Saturday")
@@ -114,18 +116,18 @@ describe("saved groups", () => {
   })
 
   it("refuses empty names, empty selections and more than the cap", () => {
-    expect(addGroup(DEFAULT_SETTINGS, "  ", ["UCabc"])).toBe(DEFAULT_SETTINGS)
+    expect(addGroup(DEFAULT_SETTINGS, "  ", ["UCabcxxxxxxxxxxxxxxxxxxx"])).toBe(DEFAULT_SETTINGS)
     expect(addGroup(DEFAULT_SETTINGS, "Name", [])).toBe(DEFAULT_SETTINGS)
 
     let settings = DEFAULT_SETTINGS
     for (let index = 0; index < MAX_SAVED_GROUPS + 3; index += 1) {
-      settings = addGroup(settings, `Group ${index}`, ["UCabc"], `g${index}`)
+      settings = addGroup(settings, `Group ${index}`, ["UCabcxxxxxxxxxxxxxxxxxxx"], `g${index}`)
     }
     expect(settings.savedGroups).toHaveLength(MAX_SAVED_GROUPS)
   })
 
   it("caps group names", () => {
-    const settings = addGroup(DEFAULT_SETTINGS, "x".repeat(100), ["UCabc"], "g1")
+    const settings = addGroup(DEFAULT_SETTINGS, "x".repeat(100), ["UCabcxxxxxxxxxxxxxxxxxxx"], "g1")
     expect(settings.savedGroups[0].name).toHaveLength(MAX_GROUP_NAME_LENGTH)
   })
 })

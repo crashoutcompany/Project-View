@@ -11,6 +11,7 @@ import {
   MAX_SELECTED_CHANNELS,
   SEARCH_RESULT_LIMIT,
   liveCacheKey,
+  searchCacheKey,
 } from "@/lib/cache-keys"
 
 // Twitch and YouTube are both stubbed: no real network calls.
@@ -120,13 +121,13 @@ describe("search service with Twitch", () => {
     const redis = { get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue("OK") }
     mockGetRedis.mockReturnValue(redis)
 
-    const selected = await service.getSelectedChannels(["tw:1", "UC-yt", "tw:2", "yt:UC-yt", "tw:3"])
+    const selected = await service.getSelectedChannels(["tw:1", "UC-ytxxxxxxxxxxxxxxxxxxx", "tw:2", "yt:UC-ytxxxxxxxxxxxxxxxxxxx", "tw:3"])
 
     expect(mockGetUsersByIds).toHaveBeenCalledTimes(1)
     expect(mockGetUsersByIds).toHaveBeenCalledWith(["1", "2", "3"])
     expect(mockGetStreamsByUserIds).toHaveBeenCalledTimes(1)
     expect(mockGetStreamsByUserIds).toHaveBeenCalledWith(["1", "2", "3"])
-    expect(selected.map((channel) => channel.channelId)).toEqual(["tw:1", "UC-yt", "tw:2", "tw:3"])
+    expect(selected.map((channel) => channel.channelId)).toEqual(["tw:1", "UC-ytxxxxxxxxxxxxxxxxxxx", "tw:2", "tw:3"])
     expect(selected[0]).toMatchObject({
       platform: "twitch",
       login: "user1",
@@ -142,18 +143,17 @@ describe("search service with Twitch", () => {
     })
   })
 
-  it("shares one /streams call across the seed, search and selected lists", async () => {
+  it("shares one /streams call across the search and selected lists", async () => {
     const redis = {
       get: vi.fn(async (key: string) =>
-        key === "yt:seed:v1" ? [twitchChannel("1"), twitchChannel("9")] : null
+        key === searchCacheKey("foo", "twitch") ? [twitchChannel("1"), twitchChannel("9")] : null
       ),
       set: vi.fn().mockResolvedValue("OK"),
     }
     mockGetRedis.mockReturnValue(redis)
 
     await Promise.all([
-      service.getSeedResults(),
-      service.getSearchResults(""),
+      service.getSearchResults("foo", "twitch"),
       service.getSelectedChannels(["tw:1", "tw:2"]),
     ])
 
@@ -186,12 +186,12 @@ describe("search service with Twitch", () => {
     mockGetStreamsByUserIds.mockRejectedValue(new Error("Twitch request failed with 503"))
     mockYoutubeLive.mockResolvedValue({ status: "live", checkedAt: "now", videoId: "v1" })
 
-    const first = await service.getSelectedChannels(["tw:1", "UC-yt"])
+    const first = await service.getSelectedChannels(["tw:1", "UC-ytxxxxxxxxxxxxxxxxxxx"])
     await service.getSelectedChannels(["tw:2"])
 
     expect(first).toEqual([
       expect.objectContaining({ channelId: "tw:1", title: "tw:1", live: expect.objectContaining({ status: "unknown" }) }),
-      expect.objectContaining({ channelId: "UC-yt", live: expect.objectContaining({ status: "live" }) }),
+      expect.objectContaining({ channelId: "UC-ytxxxxxxxxxxxxxxxxxxx", live: expect.objectContaining({ status: "live" }) }),
     ])
     const twitchWarnings = vi
       .mocked(console.warn)
@@ -205,11 +205,11 @@ describe("search service with Twitch", () => {
   it("keeps tw: ids as placeholders when Twitch isn't configured", async () => {
     mockTwitchConfigured.mockReturnValue(false)
 
-    const selected = await service.getSelectedChannels(["tw:1", "UC-yt"])
+    const selected = await service.getSelectedChannels(["tw:1", "UC-ytxxxxxxxxxxxxxxxxxxx"])
 
     expect(selected.map((channel) => [channel.channelId, channel.platform, channel.live.status])).toEqual([
       ["tw:1", "twitch", "unknown"],
-      ["UC-yt", "youtube", "offline"],
+      ["UC-ytxxxxxxxxxxxxxxxxxxx", "youtube", "offline"],
     ])
     expect(mockGetUsersByIds).not.toHaveBeenCalled()
     expect(mockGetStreamsByUserIds).not.toHaveBeenCalled()
@@ -220,18 +220,18 @@ describe("search service with Twitch", () => {
   })
 
   it("mixes both platforms in search under one shared result limit", async () => {
-    mockYoutubeSearch.mockResolvedValue(["a", "b", "c", "d", "e"].map((id) => youtubeChannel(`UC${id}`)))
+    mockYoutubeSearch.mockResolvedValue(["a", "b", "c", "d", "e"].map((id) => youtubeChannel(`UC${id}`.padEnd(24, "x"))))
     mockTwitchSearch.mockResolvedValue(["1", "2", "3", "4", "5"].map(twitchChannel))
 
     const payload = await service.getSearchResults("crash")
 
     expect(payload.channels).toHaveLength(SEARCH_RESULT_LIMIT)
     expect(payload.channels.map((channel) => channel.channelId)).toEqual([
-      "UCa",
+      "UCaxxxxxxxxxxxxxxxxxxxxx",
       "tw:1",
-      "UCb",
+      "UCbxxxxxxxxxxxxxxxxxxxxx",
       "tw:2",
-      "UCc",
+      "UCcxxxxxxxxxxxxxxxxxxxxx",
     ])
     expect(mockGetStreamsByUserIds).toHaveBeenCalledTimes(1)
     expect(mockGetStreamsByUserIds).toHaveBeenCalledWith(["1", "2"])
@@ -247,20 +247,20 @@ describe("search service with Twitch", () => {
   })
 
   it("still returns YouTube matches when Twitch search fails", async () => {
-    mockYoutubeSearch.mockResolvedValue([youtubeChannel("UCa")])
+    mockYoutubeSearch.mockResolvedValue([youtubeChannel("UCaxxxxxxxxxxxxxxxxxxxxx")])
     mockTwitchSearch.mockRejectedValue(new Error("Twitch request failed with 500"))
 
     const payload = await service.getSearchResults("crash")
 
-    expect(payload.channels.map((channel) => channel.channelId)).toEqual(["UCa"])
+    expect(payload.channels.map((channel) => channel.channelId)).toEqual(["UCaxxxxxxxxxxxxxxxxxxxxx"])
   })
 
   it("applies the selected-channel cap across both platforms combined", async () => {
     const ids = Array.from({ length: MAX_SELECTED_CHANNELS }, (_, index) =>
-      index % 2 === 0 ? `tw:${index}` : `UC${index}`
+      index % 2 === 0 ? `tw:${index}` : `UC${index}`.padEnd(24, "x")
     )
 
-    const selected = await service.getSelectedChannels([...ids, "tw:999", "UCextra"])
+    const selected = await service.getSelectedChannels([...ids, "tw:999", "UCextraxxxxxxxxxxxxxxxxx"])
 
     expect(selected).toHaveLength(MAX_SELECTED_CHANNELS)
     expect(mockGetStreamsByUserIds.mock.calls[0]?.[0]).toHaveLength(MAX_SELECTED_CHANNELS / 2)

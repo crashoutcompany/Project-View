@@ -4,20 +4,20 @@ export const SEARCH_CACHE_TTL_SECONDS = 60 * 60 * 12
 export const CHANNEL_CACHE_TTL_SECONDS = 60 * 60 * 24
 export const LIVE_CACHE_TTL_LIVE_SECONDS = 60
 export const LIVE_CACHE_TTL_OFFLINE_SECONDS = 60 * 10
-export const SEED_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7
 // Shared across platforms: a mixed search returns at most this many channels.
 export const SEARCH_RESULT_LIMIT = 5
-export const SEEDED_CHANNEL_LIMIT = 8
 
 // Inputs come from public URLs and server actions, and each uncached channel
 // id or query costs YouTube quota or a Twitch call, so bound them. The cap
 // covers both platforms combined.
-export const MAX_SELECTED_CHANNELS = 50
+export const MAX_SELECTED_CHANNELS = 12
 export const MAX_QUERY_LENGTH = 100
 
 export const TWITCH_ID_PREFIX = "tw:"
 export const YOUTUBE_ID_PREFIX = "yt:"
-const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/
+// Real channel ids only: "UC" plus 22 characters. Anything else can never
+// resolve, so it must not be able to mint cache misses.
+const YOUTUBE_ID_PATTERN = /^UC[\w-]{22}$/
 const TWITCH_USER_ID_PATTERN = /^\d{1,20}$/
 
 export type ParsedChannelId = {
@@ -97,8 +97,5 @@ export function liveCacheKey(channelId: string) {
     ? `tw:live:v1:${channelId.slice(TWITCH_ID_PREFIX.length)}`
     : `yt:live:v1:${channelId}`
 }
-
-// Mixed-platform list; entries cached before Twitch have no platform field.
-export const seedCacheKey = "yt:seed:v1"
 
 export const twitchTokenCacheKey = "tw:token:v1"

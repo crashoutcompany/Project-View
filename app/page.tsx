@@ -5,10 +5,10 @@ import { MultiwatchApp } from "@/components/multiwatch-app"
 import {
   configuredPlatforms,
   getSearchResults,
-  getSeedResults,
   getSelectedChannels,
   projectConfigured,
 } from "@/lib/search-service"
+import { isRateLimited, RATE_LIMITED_MESSAGE } from "@/lib/rate-limit"
 import { twitchParentHosts } from "@/lib/twitch-embed"
 
 type PageProps = {
@@ -52,14 +52,15 @@ export async function PageContent({ searchParams }: PageProps) {
       ? resolvedSearchParams.channels.split(",").filter(Boolean)
       : []
 
-  const [seedPayload, searchPayload, selectedChannels] = configured
+  // Over the limit: serve from the cache only, never the YouTube API.
+  const cachedOnly = configured && (await isRateLimited(requestHeaders))
+
+  const [searchPayload, selectedChannels] = configured
     ? await Promise.all([
-        getSeedResults(),
-        getSearchResults(query),
-        getSelectedChannels(channelIds),
+        getSearchResults(query, "all", cachedOnly),
+        getSelectedChannels(channelIds, cachedOnly),
       ])
     : [
-        { query: "", channels: [], cached: false, source: "seed" as const },
         { query, channels: [], cached: false, source: "search" as const },
         [],
       ]
@@ -68,10 +69,10 @@ export async function PageContent({ searchParams }: PageProps) {
     <MultiwatchApp
       initialQuery={query}
       initialResults={searchPayload.channels}
-      initialSeedResults={seedPayload.channels}
       initialSelectedChannels={selectedChannels}
       initialUpdatedAt={new Date().toISOString()}
       configured={configured}
+      notice={cachedOnly ? RATE_LIMITED_MESSAGE : undefined}
       platforms={configured ? configuredPlatforms() : []}
       twitchParents={twitchParents}
     />

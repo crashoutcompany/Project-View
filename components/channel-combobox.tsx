@@ -75,7 +75,7 @@ export function ChannelCombobox({
                 </div>
               </CommandEmpty>
             ) : null}
-            <CommandGroup heading={query ? "Matches" : "Cached suggestions"}>
+            <CommandGroup heading="Matches">
               {results.map((channel) => (
                 <CommandItem
                   key={channel.channelId}

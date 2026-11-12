@@ -13,9 +13,6 @@ import {
   SEARCH_CACHE_TTL_SECONDS,
   searchCacheKey,
   SEARCH_RESULT_LIMIT,
-  seedCacheKey,
-  SEEDED_CHANNEL_LIMIT,
-  SEED_CACHE_TTL_SECONDS,
 } from "@/lib/cache-keys"
 import { createBatcher } from "@/lib/batcher"
 import { readCache, writeCache } from "@/lib/cache"
@@ -135,10 +132,6 @@ function placeholderChannel(channelId: string): BaseChannel {
   }
 }
 
-function dedupeChannels(channels: BaseChannel[]) {
-  return Array.from(new Map(channels.map((channel) => [channel.channelId, channel])).values())
-}
-
 async function cacheChannels(channels: BaseChannel[]) {
   await Promise.all(
     channels.map((channel) =>
@@ -147,14 +140,16 @@ async function cacheChannels(channels: BaseChannel[]) {
   )
 }
 
-async function getChannelById(channelId: string) {
+// `cachedOnly` serves from Redis and never calls a provider API (used when a
+// client is rate limited).
+async function getChannelById(channelId: string, cachedOnly = false) {
   const cached = await readCache<BaseChannel>(channelCacheKey(channelId))
   if (cached) {
     return withPlatform(cached)
   }
 
   const platform = platformOf(channelId)
-  if (!platformConfigured(platform)) {
+  if (cachedOnly || !platformConfigured(platform)) {
     return placeholderChannel(channelId)
   }
 
@@ -175,10 +170,14 @@ async function getChannelById(channelId: string) {
   return channel
 }
 
-async function getLiveStatus(channelId: string) {
+async function getLiveStatus(channelId: string, cachedOnly = false) {
   const cached = await readCache<LiveStatus>(liveCacheKey(channelId))
   if (cached) {
     return cached
+  }
+
+  if (cachedOnly) {
+    return unknownLiveStatus()
   }
 
   return fetchLiveStatus(channelId)
@@ -209,17 +208,10 @@ async function fetchLiveStatus(channelId: string) {
   return live
 }
 
-async function updateSeedChannels(channels: BaseChannel[]) {
-  const current = (await readCache<BaseChannel[]>(seedCacheKey)) ?? []
-  const merged = dedupeChannels([...channels, ...current]).slice(0, SEEDED_CHANNEL_LIMIT)
-
-  await writeCache(seedCacheKey, merged, SEED_CACHE_TTL_SECONDS)
-}
-
-async function withLiveStatus(channels: BaseChannel[]) {
+async function withLiveStatus(channels: BaseChannel[], cachedOnly = false) {
   const liveStates = await Promise.all(
     channels.map(async (channel) => {
-      const live = await getLiveStatus(channel.channelId)
+      const live = await getLiveStatus(channel.channelId, cachedOnly)
 
       return {
         ...channel,
@@ -237,32 +229,15 @@ export function projectConfigured() {
   return youtubeConfigured() || twitchConfigured()
 }
 
-export async function getSeedResults(): Promise<SearchPayload> {
-  if (!projectConfigured()) {
-    return {
-      query: "",
-      channels: [],
-      cached: false,
-      source: "seed",
-    }
-  }
-
-  const channels = ((await readCache<BaseChannel[]>(seedCacheKey)) ?? []).map(withPlatform)
-  const merged = await withLiveStatus(channels)
-
-  return {
-    query: "",
-    channels: merged,
-    cached: true,
-    source: "seed",
-  }
-}
-
-async function searchPlatform(platform: Platform, query: string) {
+async function searchPlatform(platform: Platform, query: string, cachedOnly: boolean) {
   const key = searchCacheKey(query, platform)
   const cached = await readCache<BaseChannel[]>(key)
   if (cached) {
     return { channels: cached.map(withPlatform), cached: true }
+  }
+
+  if (cachedOnly) {
+    return null
   }
 
   const response =
@@ -291,7 +266,8 @@ function interleave(lists: BaseChannel[][]) {
 
 export async function getSearchResults(
   query: string,
-  platform: PlatformFilter = "all"
+  platform: PlatformFilter = "all",
+  cachedOnly = false
 ): Promise<SearchPayload> {
   const normalizedQuery = normalizeQuery(query)
 
@@ -305,14 +281,14 @@ export async function getSearchResults(
   }
 
   if (!normalizedQuery) {
-    return getSeedResults()
+    return { query: "", channels: [], cached: false, source: "search" }
   }
 
   const platforms = configuredPlatforms().filter(
     (candidate) => platform === "all" || candidate === platform
   )
   const searches = (
-    await Promise.all(platforms.map((candidate) => searchPlatform(candidate, normalizedQuery)))
+    await Promise.all(platforms.map((candidate) => searchPlatform(candidate, normalizedQuery, cachedOnly)))
   ).filter((search) => search !== null)
 
   if (searches.length === 0) {
@@ -325,33 +301,38 @@ export async function getSearchResults(
     SEARCH_RESULT_LIMIT
   )
 
-  await updateSeedChannels(channels)
-
   return {
     query: normalizedQuery,
-    channels: await withLiveStatus(channels),
+    channels: await withLiveStatus(channels, cachedOnly),
     cached: searches.every((search) => search.cached),
     source: "search",
   }
 }
 
-export async function getSelectedChannels(channelIds: string[]) {
+export async function getSelectedChannels(channelIds: string[], cachedOnly = false) {
   if (!projectConfigured()) {
     return []
   }
 
   const uniqueIds = sanitizeChannelIds(channelIds)
-  const channels = await Promise.all(uniqueIds.map((channelId) => getChannelById(channelId)))
+  const channels = await Promise.all(
+    uniqueIds.map((channelId) => getChannelById(channelId, cachedOnly))
+  )
 
-  return withLiveStatus(channels.filter((channel): channel is BaseChannel => Boolean(channel)))
+  return withLiveStatus(
+    channels.filter((channel): channel is BaseChannel => Boolean(channel)),
+    cachedOnly
+  )
 }
 
-export async function refreshChannelLiveStatus(channelId: string) {
+// Goes through the live cache, so the interval poll costs quota only when a
+// channel's cached status has expired.
+export async function refreshChannelLiveStatus(channelId: string, cachedOnly = false) {
   if (!projectConfigured()) {
     return null
   }
 
-  const channel = await getChannelById(channelId)
+  const channel = await getChannelById(channelId, cachedOnly)
 
   if (!channel) {
     return null
@@ -359,6 +340,6 @@ export async function refreshChannelLiveStatus(channelId: string) {
 
   return {
     ...channel,
-    live: await fetchLiveStatus(channelId),
+    live: await getLiveStatus(channelId, cachedOnly),
   } satisfies ChannelResult
 }

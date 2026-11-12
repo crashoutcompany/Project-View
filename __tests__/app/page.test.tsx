@@ -8,7 +8,6 @@ import type { ReactElement } from "react"
 import type { ChannelResult, SearchPayload } from "@/lib/types"
 
 const mockGetSearchResults = vi.fn<(query: string) => Promise<SearchPayload>>()
-const mockGetSeedResults = vi.fn<() => Promise<SearchPayload>>()
 const mockGetSelectedChannels = vi.fn<(channelIds: string[]) => Promise<ChannelResult[]>>()
 const mockProjectConfigured = vi.fn<() => boolean>()
 const mockConfiguredPlatforms = vi.fn<() => Array<"youtube" | "twitch">>()
@@ -19,10 +18,16 @@ const mockMultiwatchApp = vi.fn<(props: Record<string, unknown>) => ReactElement
 
 vi.doMock("@/lib/search-service", () => ({
   getSearchResults: mockGetSearchResults,
-  getSeedResults: mockGetSeedResults,
   getSelectedChannels: mockGetSelectedChannels,
   projectConfigured: mockProjectConfigured,
   configuredPlatforms: mockConfiguredPlatforms,
+}))
+
+const mockIsRateLimited = vi.fn<(headers: Headers) => Promise<boolean>>()
+
+vi.doMock("@/lib/rate-limit", () => ({
+  isRateLimited: mockIsRateLimited,
+  RATE_LIMITED_MESSAGE: "limited",
 }))
 
 vi.doMock("next/headers", () => ({
@@ -38,7 +43,7 @@ let PageContent: typeof import("@/app/page").PageContent
 function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
   return {
     platform: "youtube",
-    channelId: "chan-1",
+    channelId: "UCchan-1xxxxxxxxxxxxxxxx",
     title: "Channel One",
     description: "",
     thumbnailUrl: "thumb.jpg",
@@ -56,23 +61,18 @@ beforeAll(async () => {
 
 describe("PageContent", () => {
   beforeEach(() => {
-    mockGetSeedResults.mockReset()
     mockGetSearchResults.mockReset()
     mockGetSelectedChannels.mockReset()
     mockProjectConfigured.mockReset()
     mockMultiwatchApp.mockClear()
+    mockIsRateLimited.mockReset()
+    mockIsRateLimited.mockResolvedValue(false)
     mockConfiguredPlatforms.mockReturnValue(["youtube", "twitch"])
     mockHeaders.mockResolvedValue(new Headers({ host: "localhost:3000" }))
   })
 
   it("loads configured data and passes normalized props to MultiwatchApp", async () => {
     mockProjectConfigured.mockReturnValue(true)
-    mockGetSeedResults.mockResolvedValue({
-      query: "",
-      channels: [makeChannel({ platform: "youtube", channelId: "seed-1", title: "Seed One" })],
-      cached: true,
-      source: "seed",
-    })
     mockGetSearchResults.mockResolvedValue({
       query: "alpha",
       channels: [makeChannel({ platform: "youtube", channelId: "search-1", title: "Search One" })],
@@ -84,27 +84,39 @@ describe("PageContent", () => {
     const view = await PageContent({
       searchParams: Promise.resolve({
         q: "alpha",
-        channels: "chan-1,,chan-2",
+        channels: "UCchan-1xxxxxxxxxxxxxxxx,,UCchan-2xxxxxxxxxxxxxxxx",
       }),
     })
 
     render(view)
 
     expect(screen.getByTestId("multiwatch-app")).toBeInTheDocument()
-    expect(mockGetSearchResults).toHaveBeenCalledWith("alpha")
-    expect(mockGetSelectedChannels).toHaveBeenCalledWith(["chan-1", "chan-2"])
+    expect(mockGetSearchResults).toHaveBeenCalledWith("alpha", "all", false)
+    expect(mockGetSelectedChannels).toHaveBeenCalledWith(["UCchan-1xxxxxxxxxxxxxxxx", "UCchan-2xxxxxxxxxxxxxxxx"], false)
     expect(mockMultiwatchApp.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         initialQuery: "alpha",
-        initialSeedResults: [expect.objectContaining({ channelId: "seed-1" })],
         initialResults: [expect.objectContaining({ channelId: "search-1" })],
-        initialSelectedChannels: [expect.objectContaining({ channelId: "chan-1" })],
+        initialSelectedChannels: [expect.objectContaining({ channelId: "UCchan-1xxxxxxxxxxxxxxxx" })],
         configured: true,
         platforms: ["youtube", "twitch"],
         twitchParents: ["localhost"],
         initialUpdatedAt: expect.any(String),
       })
     )
+  })
+
+  it("serves cached data only, with a notice, when rate limited", async () => {
+    mockProjectConfigured.mockReturnValue(true)
+    mockIsRateLimited.mockResolvedValue(true)
+    mockGetSearchResults.mockResolvedValue({ query: "", channels: [], cached: true, source: "search" })
+    mockGetSelectedChannels.mockResolvedValue([])
+
+    render(await PageContent({ searchParams: Promise.resolve({ q: "alpha", channels: "UCchan-1xxxxxxxxxxxxxxxx" }) }))
+
+    expect(mockGetSearchResults).toHaveBeenCalledWith("alpha", "all", true)
+    expect(mockGetSelectedChannels).toHaveBeenCalledWith(["UCchan-1xxxxxxxxxxxxxxxx"], true)
+    expect(mockMultiwatchApp.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ notice: "limited" }))
   })
 
   it("lists the request host and Vercel URLs as Twitch parents", async () => {
@@ -143,13 +155,11 @@ describe("PageContent", () => {
 
     render(view)
 
-    expect(mockGetSeedResults).not.toHaveBeenCalled()
     expect(mockGetSearchResults).not.toHaveBeenCalled()
     expect(mockGetSelectedChannels).not.toHaveBeenCalled()
     expect(mockMultiwatchApp.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         initialQuery: "",
-        initialSeedResults: [],
         initialResults: [],
         initialSelectedChannels: [],
         configured: false,
