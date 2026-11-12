@@ -13,7 +13,6 @@ import {
   SEARCH_CACHE_TTL_SECONDS,
   searchCacheKey,
   SEARCH_RESULT_LIMIT,
-  seedCacheKey,
 } from "@/lib/cache-keys"
 import { createBatcher } from "@/lib/batcher"
 import { readCache, writeCache } from "@/lib/cache"
@@ -230,27 +229,6 @@ export function projectConfigured() {
   return youtubeConfigured() || twitchConfigured()
 }
 
-export async function getSeedResults(cachedOnly = false): Promise<SearchPayload> {
-  if (!projectConfigured()) {
-    return {
-      query: "",
-      channels: [],
-      cached: false,
-      source: "seed",
-    }
-  }
-
-  const channels = ((await readCache<BaseChannel[]>(seedCacheKey)) ?? []).map(withPlatform)
-  const merged = await withLiveStatus(channels, cachedOnly)
-
-  return {
-    query: "",
-    channels: merged,
-    cached: true,
-    source: "seed",
-  }
-}
-
 async function searchPlatform(platform: Platform, query: string, cachedOnly: boolean) {
   const key = searchCacheKey(query, platform)
   const cached = await readCache<BaseChannel[]>(key)
@@ -303,7 +281,7 @@ export async function getSearchResults(
   }
 
   if (!normalizedQuery) {
-    return getSeedResults(cachedOnly)
+    return { query: "", channels: [], cached: false, source: "search" }
   }
 
   const platforms = configuredPlatforms().filter(

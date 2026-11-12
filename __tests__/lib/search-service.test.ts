@@ -14,7 +14,6 @@ import {
   channelCacheKey,
   liveCacheKey,
   searchCacheKey,
-  seedCacheKey,
 } from "@/lib/cache-keys"
 
 const mockGetRedis = vi.fn<() => RedisMock | null>()
@@ -47,7 +46,6 @@ vi.doMock("@/lib/youtube", () => ({
 }))
 
 let getSearchResults: typeof import("@/lib/search-service").getSearchResults
-let getSeedResults: typeof import("@/lib/search-service").getSeedResults
 let getSelectedChannels: typeof import("@/lib/search-service").getSelectedChannels
 let projectConfigured: typeof import("@/lib/search-service").projectConfigured
 let refreshChannelLiveStatus: typeof import("@/lib/search-service").refreshChannelLiveStatus
@@ -57,7 +55,6 @@ let resetYouTubeStateForTests: typeof import("@/lib/search-service").resetYouTub
 beforeAll(async () => {
   ;({
     getSearchResults,
-    getSeedResults,
     getSelectedChannels,
     projectConfigured,
     refreshChannelLiveStatus,
@@ -119,9 +116,8 @@ describe("search service", () => {
         : { status: "offline", checkedAt: "now" }
     )
 
-    // Mirrors the page: seed, search and selected channels in one load.
-    const [, , selected] = await Promise.all([
-      getSeedResults(),
+    // Mirrors the page: search and selected channels in one load.
+    const [, selected] = await Promise.all([
       getSearchResults(""),
       getSelectedChannels(["UCchan-1xxxxxxxxxxxxxxxx", "UCchan-2xxxxxxxxxxxxxxxx"]),
     ])
@@ -167,86 +163,19 @@ describe("search service", () => {
     expect(projectConfigured()).toBe(true)
   })
 
-  it("returns an empty seed payload when the project is not configured", async () => {
-    mockYoutubeConfigured.mockReturnValueOnce(false)
-
-    await expect(getSeedResults()).resolves.toEqual({
+  it("returns no channels for an empty query", async () => {
+    await expect(getSearchResults("  ")).resolves.toEqual({
       query: "",
       channels: [],
       cached: false,
-      source: "seed",
+      source: "search",
     })
-  })
-
-  it("returns cached seed channels with live state", async () => {
-    const redis = createRedisMock()
-    mockGetRedis.mockReturnValue(redis)
-    redis.get.mockImplementation(async (key: string) => {
-      if (key === seedCacheKey) {
-        return [
-          {
-            platform: "youtube",
-            channelId: "UCchan-1xxxxxxxxxxxxxxxx",
-            title: "Seeded",
-            description: "Ready",
-            thumbnailUrl: "seed.jpg",
-          },
-        ]
-      }
-
-      if (key === liveCacheKey("UCchan-1xxxxxxxxxxxxxxxx")) {
-        return {
-          status: "live",
-          checkedAt: "2026-03-06T00:00:00.000Z",
-          videoId: "video-1",
-        }
-      }
-
-      return null
-    })
-
-    await expect(getSeedResults()).resolves.toEqual({
-      query: "",
-      channels: [
-        {
-          platform: "youtube",
-          channelId: "UCchan-1xxxxxxxxxxxxxxxx",
-          title: "Seeded",
-          description: "Ready",
-          thumbnailUrl: "seed.jpg",
-          live: {
-            status: "live",
-            checkedAt: "2026-03-06T00:00:00.000Z",
-            videoId: "video-1",
-          },
-        },
-      ],
-      cached: true,
-      source: "seed",
-    })
-
-    expect(mockGetLiveVideoForChannel).not.toHaveBeenCalled()
+    expect(mockSearchChannels).not.toHaveBeenCalled()
   })
 
   it("searches, caches, and merges live state on cache misses", async () => {
     const redis = createRedisMock()
     mockGetRedis.mockReturnValue(redis)
-    redis.get.mockImplementation(async (key: string) => {
-      if (key === seedCacheKey) {
-        return [
-          {
-            platform: "youtube",
-            channelId: "UCseed-existingxxxxxxxxx",
-            title: "Existing Seed",
-            description: "Existing",
-            thumbnailUrl: "seed-existing.jpg",
-          },
-        ]
-      }
-
-      return null
-    })
-
     mockSearchChannels.mockResolvedValue(
       Array.from({ length: SEARCH_RESULT_LIMIT + 1 }, (_, index) => ({
         platform: "youtube",
@@ -292,8 +221,6 @@ describe("search service", () => {
       expect.objectContaining({ status: "offline" }),
       { ex: LIVE_CACHE_TTL_OFFLINE_SECONDS }
     )
-    // GET/search never rewrites the shared suggestions list.
-    expect(redis.set).not.toHaveBeenCalledWith(seedCacheKey, expect.anything(), expect.anything())
   })
 
   it("uses cached search results when available", async () => {
@@ -312,10 +239,6 @@ describe("search service", () => {
     redis.get.mockImplementation(async (key: string) => {
       if (key === searchCacheKey("cached")) {
         return cachedChannels
-      }
-
-      if (key === seedCacheKey) {
-        return []
       }
 
       if (key === liveCacheKey("UCchan-1xxxxxxxxxxxxxxxx")) {
@@ -344,7 +267,6 @@ describe("search service", () => {
     })
 
     expect(mockSearchChannels).not.toHaveBeenCalled()
-    expect(redis.set).not.toHaveBeenCalledWith(seedCacheKey, expect.anything(), expect.anything())
   })
 
   it("still returns search results when Redis is unavailable", async () => {

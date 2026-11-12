@@ -40,7 +40,6 @@ import { cn } from "@/lib/utils";
 type MultiwatchAppProps = {
   initialQuery: string;
   initialResults: ChannelResult[];
-  initialSeedResults: ChannelResult[];
   initialSelectedChannels: ChannelResult[];
   initialUpdatedAt: string;
   configured: boolean;
@@ -103,7 +102,6 @@ function buildUrl(nextQuery: string, nextSelectedChannels: ChannelResult[]) {
 export function MultiwatchApp({
   initialQuery,
   initialResults,
-  initialSeedResults,
   initialSelectedChannels,
   initialUpdatedAt,
   configured,
@@ -115,9 +113,8 @@ export function MultiwatchApp({
   const [notice, setNotice] = React.useState(initialNotice);
   const [platformFilter, setPlatformFilter] =
     React.useState<PlatformFilterValue>("all");
-  const [seedResults, setSeedResults] = React.useState(initialSeedResults);
   const [results, setResults] = React.useState(
-    initialQuery ? initialResults : initialSeedResults,
+    initialQuery ? initialResults : [],
   );
   const [selectedChannels, setSelectedChannels] = React.useState(
     initialSelectedChannels,
@@ -178,12 +175,6 @@ export function MultiwatchApp({
         current,
       ),
     );
-    setSeedResults((current) =>
-      refreshed.reduce(
-        (accumulator, channel) => mergeChannel(accumulator, channel),
-        current,
-      ),
-    );
     setLastUpdated(new Date().toISOString());
   }
 
@@ -198,7 +189,7 @@ export function MultiwatchApp({
     const trimmedQuery = nextQuery.trim();
 
     if (!configured || !trimmedQuery) {
-      setResults(seedResults);
+      setResults([]);
       return;
     }
 
@@ -212,9 +203,6 @@ export function MultiwatchApp({
 
           setNotice(payload.notice);
           setResults(payload.channels);
-          setSeedResults((current) =>
-            dedupeChannels([...payload.channels, ...current]).slice(0, 8),
-          );
           setLastUpdated(new Date().toISOString());
         } catch (error) {
           console.error(error);
@@ -503,7 +491,7 @@ export function MultiwatchApp({
   // so iframes don't remount when a channel goes live.
   // Also filtered here so stale results from another filter never flash.
   const displayedResults = sortLiveFirst(
-    query.trim() ? results : seedResults,
+    query.trim() ? results : [],
   ).filter(
     (channel) =>
       platformFilter === "all" || channel.platform === platformFilter,
@@ -654,18 +642,18 @@ export function MultiwatchApp({
                 onRemoveChannel={handleRemoveChannel}
               />
 
-              <ChannelResults
-                title={query.trim() ? "Results" : "Suggestions"}
-                description={
-                  query.trim() ? "Matched channels." : "Suggested channels."
-                }
-                channels={unselectedResults}
-                selectedIds={selectedIds}
-                emptyMessage="Search to find channels."
-                now={now}
-                onAddChannel={handleAddChannel}
-                onRemoveChannel={handleRemoveChannel}
-              />
+              {query.trim() ? (
+                <ChannelResults
+                  title="Results"
+                  description="Matched channels."
+                  channels={unselectedResults}
+                  selectedIds={selectedIds}
+                  emptyMessage="No channels found."
+                  now={now}
+                  onAddChannel={handleAddChannel}
+                  onRemoveChannel={handleRemoveChannel}
+                />
+              ) : null}
             </div>
           </div>
         </aside>

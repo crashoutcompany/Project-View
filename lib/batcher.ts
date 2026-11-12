@@ -1,5 +1,5 @@
 // Coalesces lookups made within a short window into one batched call, so the
-// seed, search and selected lists on one page load (or one refresh action)
+// search and selected lists on one page load (or one refresh action)
 // share a single upstream request instead of one each.
 export const BATCH_WINDOW_MS = 10
 

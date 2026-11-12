@@ -126,13 +126,10 @@ function makeChannel(overrides: Partial<ChannelResult> = {}): ChannelResult {
 }
 
 function renderApp(overrides: Partial<ComponentProps<typeof MultiwatchApp>> = {}) {
-  const seedChannel = makeChannel()
-
   return render(
     <MultiwatchApp
-      initialQuery=""
-      initialResults={[]}
-      initialSeedResults={[seedChannel]}
+      initialQuery="al"
+      initialResults={[makeChannel()]}
       initialSelectedChannels={[]}
       initialUpdatedAt="2026-03-06T00:00:00.000Z"
       configured
@@ -150,7 +147,7 @@ describe("MultiwatchApp", () => {
     window.history.pushState({}, "", "/")
   })
 
-  it("filters suggestions by platform and re-runs the search for that platform", async () => {
+  it("filters results by platform and re-runs the search for that platform", async () => {
     vi.useFakeTimers()
     mockSearchChannelsAction.mockResolvedValue({
       query: "alpha",
@@ -160,7 +157,8 @@ describe("MultiwatchApp", () => {
     })
     renderApp({
       platforms: ["youtube", "twitch"],
-      initialSeedResults: [
+      initialQuery: "al",
+      initialResults: [
         makeChannel({ channelId: "UCchan-ytxxxxxxxxxxxxxxx", title: "YouTube Seed" }),
         makeChannel({
           platform: "twitch",
@@ -184,6 +182,13 @@ describe("MultiwatchApp", () => {
     })
 
     expect(mockSearchChannelsAction).toHaveBeenLastCalledWith("alpha", "twitch")
+  })
+
+  it("shows no results section until there is a query", () => {
+    renderApp({ initialQuery: "", initialResults: [] })
+
+    expect(screen.queryByRole("region", { name: "Results" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "Suggestions" })).not.toBeInTheDocument()
   })
 
   it("hides the platform filter when only one platform is configured", () => {
@@ -229,7 +234,7 @@ describe("MultiwatchApp", () => {
     expect(screen.getByTestId("live-grid")).toHaveTextContent(
       '"activeAudioChannelId":"UCchan-1xxxxxxxxxxxxxxxx"'
     )
-    expect(window.location.search).toBe("?channels=UCchan-1xxxxxxxxxxxxxxxx")
+    expect(window.location.search).toBe("?q=al&channels=UCchan-1xxxxxxxxxxxxxxxx")
 
     fireEvent.click(
       within(screen.getByRole("region", { name: "Selected" })).getByRole("button", {
@@ -238,7 +243,7 @@ describe("MultiwatchApp", () => {
     )
 
     expect(screen.getByTestId("live-grid")).toHaveTextContent('"channelIds":[]')
-    expect(window.location.search).toBe("")
+    expect(window.location.search).toBe("?q=al")
   })
 
   it("refreshes selected channels and applies the returned state", async () => {
@@ -287,7 +292,8 @@ describe("MultiwatchApp", () => {
     })
 
     renderApp({
-      initialSeedResults: [unknown, offline, liveSmall, liveBig],
+      initialQuery: "al",
+      initialResults: [unknown, offline, liveSmall, liveBig],
       initialSelectedChannels: [offline, liveSmall, liveBig],
     })
 
@@ -297,13 +303,13 @@ describe("MultiwatchApp", () => {
         .map((element) => element.textContent)
 
     expect(titlesIn("Selected")).toEqual(["Live Small", "Live Big", "Offline One"])
-    expect(titlesIn("Suggestions")).toEqual(["Unknown One"])
+    expect(titlesIn("Results")).toEqual(["Unknown One"])
     expect(screen.getByTestId("live-grid")).toHaveTextContent(
       '"channelIds":["UCchan-offxxxxxxxxxxxxxx","UCchan-live-smallxxxxxxx","UCchan-live-bigxxxxxxxxx"]'
     )
   })
 
-  it("leaves selected channels out of suggestions and results, keeping live first", async () => {
+  it("leaves selected channels out of results, keeping live first", async () => {
     vi.useFakeTimers()
     const offline = makeChannel({ channelId: "UCchan-offxxxxxxxxxxxxxx", title: "Offline One" })
     const unknown = makeChannel({
@@ -329,7 +335,8 @@ describe("MultiwatchApp", () => {
     })
 
     renderApp({
-      initialSeedResults: [unknown, offline, liveSmall, liveBig],
+      initialQuery: "al",
+      initialResults: [unknown, offline, liveSmall, liveBig],
       initialSelectedChannels: [liveBig],
     })
 
@@ -338,7 +345,7 @@ describe("MultiwatchApp", () => {
         .getAllByText(/One|Live/)
         .map((element) => element.textContent)
 
-    expect(titlesIn("Suggestions")).toEqual(["Live Small", "Unknown One", "Offline One"])
+    expect(titlesIn("Results")).toEqual(["Live Small", "Unknown One", "Offline One"])
 
     fireEvent.change(screen.getByLabelText("Query"), { target: { value: "alpha" } })
     await act(async () => {

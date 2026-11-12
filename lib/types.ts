@@ -34,7 +34,7 @@ export type SearchPayload = {
   query: string
   channels: ChannelResult[]
   cached: boolean
-  source: "seed" | "search"
+  source: "search"
   // Shown to the user, e.g. when the request was rate limited.
   notice?: string
 }

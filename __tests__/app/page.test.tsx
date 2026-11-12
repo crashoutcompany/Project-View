@@ -8,7 +8,6 @@ import type { ReactElement } from "react"
 import type { ChannelResult, SearchPayload } from "@/lib/types"
 
 const mockGetSearchResults = vi.fn<(query: string) => Promise<SearchPayload>>()
-const mockGetSeedResults = vi.fn<() => Promise<SearchPayload>>()
 const mockGetSelectedChannels = vi.fn<(channelIds: string[]) => Promise<ChannelResult[]>>()
 const mockProjectConfigured = vi.fn<() => boolean>()
 const mockConfiguredPlatforms = vi.fn<() => Array<"youtube" | "twitch">>()
@@ -19,7 +18,6 @@ const mockMultiwatchApp = vi.fn<(props: Record<string, unknown>) => ReactElement
 
 vi.doMock("@/lib/search-service", () => ({
   getSearchResults: mockGetSearchResults,
-  getSeedResults: mockGetSeedResults,
   getSelectedChannels: mockGetSelectedChannels,
   projectConfigured: mockProjectConfigured,
   configuredPlatforms: mockConfiguredPlatforms,
@@ -63,7 +61,6 @@ beforeAll(async () => {
 
 describe("PageContent", () => {
   beforeEach(() => {
-    mockGetSeedResults.mockReset()
     mockGetSearchResults.mockReset()
     mockGetSelectedChannels.mockReset()
     mockProjectConfigured.mockReset()
@@ -76,12 +73,6 @@ describe("PageContent", () => {
 
   it("loads configured data and passes normalized props to MultiwatchApp", async () => {
     mockProjectConfigured.mockReturnValue(true)
-    mockGetSeedResults.mockResolvedValue({
-      query: "",
-      channels: [makeChannel({ platform: "youtube", channelId: "UCseed-1xxxxxxxxxxxxxxxx", title: "Seed One" })],
-      cached: true,
-      source: "seed",
-    })
     mockGetSearchResults.mockResolvedValue({
       query: "alpha",
       channels: [makeChannel({ platform: "youtube", channelId: "search-1", title: "Search One" })],
@@ -105,7 +96,6 @@ describe("PageContent", () => {
     expect(mockMultiwatchApp.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         initialQuery: "alpha",
-        initialSeedResults: [expect.objectContaining({ channelId: "UCseed-1xxxxxxxxxxxxxxxx" })],
         initialResults: [expect.objectContaining({ channelId: "search-1" })],
         initialSelectedChannels: [expect.objectContaining({ channelId: "UCchan-1xxxxxxxxxxxxxxxx" })],
         configured: true,
@@ -119,14 +109,11 @@ describe("PageContent", () => {
   it("serves cached data only, with a notice, when rate limited", async () => {
     mockProjectConfigured.mockReturnValue(true)
     mockIsRateLimited.mockResolvedValue(true)
-    const empty = { query: "", channels: [], cached: true, source: "seed" as const }
-    mockGetSeedResults.mockResolvedValue(empty)
-    mockGetSearchResults.mockResolvedValue({ ...empty, source: "search" })
+    mockGetSearchResults.mockResolvedValue({ query: "", channels: [], cached: true, source: "search" })
     mockGetSelectedChannels.mockResolvedValue([])
 
     render(await PageContent({ searchParams: Promise.resolve({ q: "alpha", channels: "UCchan-1xxxxxxxxxxxxxxxx" }) }))
 
-    expect(mockGetSeedResults).toHaveBeenCalledWith(true)
     expect(mockGetSearchResults).toHaveBeenCalledWith("alpha", "all", true)
     expect(mockGetSelectedChannels).toHaveBeenCalledWith(["UCchan-1xxxxxxxxxxxxxxxx"], true)
     expect(mockMultiwatchApp.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ notice: "limited" }))
@@ -168,13 +155,11 @@ describe("PageContent", () => {
 
     render(view)
 
-    expect(mockGetSeedResults).not.toHaveBeenCalled()
     expect(mockGetSearchResults).not.toHaveBeenCalled()
     expect(mockGetSelectedChannels).not.toHaveBeenCalled()
     expect(mockMultiwatchApp.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         initialQuery: "",
-        initialSeedResults: [],
         initialResults: [],
         initialSelectedChannels: [],
         configured: false,

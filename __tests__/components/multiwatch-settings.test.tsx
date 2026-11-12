@@ -74,7 +74,6 @@ function renderApp(overrides: Partial<ComponentProps<typeof MultiwatchApp>> = {}
     <MultiwatchApp
       initialQuery=""
       initialResults={[]}
-      initialSeedResults={[]}
       initialSelectedChannels={[]}
       initialUpdatedAt="2026-10-30T00:00:00.000Z"
       configured

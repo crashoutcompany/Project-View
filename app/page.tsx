@@ -5,7 +5,6 @@ import { MultiwatchApp } from "@/components/multiwatch-app"
 import {
   configuredPlatforms,
   getSearchResults,
-  getSeedResults,
   getSelectedChannels,
   projectConfigured,
 } from "@/lib/search-service"
@@ -56,14 +55,12 @@ export async function PageContent({ searchParams }: PageProps) {
   // Over the limit: serve from the cache only, never the YouTube API.
   const cachedOnly = configured && (await isRateLimited(requestHeaders))
 
-  const [seedPayload, searchPayload, selectedChannels] = configured
+  const [searchPayload, selectedChannels] = configured
     ? await Promise.all([
-        getSeedResults(cachedOnly),
         getSearchResults(query, "all", cachedOnly),
         getSelectedChannels(channelIds, cachedOnly),
       ])
     : [
-        { query: "", channels: [], cached: false, source: "seed" as const },
         { query, channels: [], cached: false, source: "search" as const },
         [],
       ]
@@ -72,7 +69,6 @@ export async function PageContent({ searchParams }: PageProps) {
     <MultiwatchApp
       initialQuery={query}
       initialResults={searchPayload.channels}
-      initialSeedResults={seedPayload.channels}
       initialSelectedChannels={selectedChannels}
       initialUpdatedAt={new Date().toISOString()}
       configured={configured}

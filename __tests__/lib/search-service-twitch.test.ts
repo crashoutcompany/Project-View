@@ -11,6 +11,7 @@ import {
   MAX_SELECTED_CHANNELS,
   SEARCH_RESULT_LIMIT,
   liveCacheKey,
+  searchCacheKey,
 } from "@/lib/cache-keys"
 
 // Twitch and YouTube are both stubbed: no real network calls.
@@ -142,18 +143,17 @@ describe("search service with Twitch", () => {
     })
   })
 
-  it("shares one /streams call across the seed, search and selected lists", async () => {
+  it("shares one /streams call across the search and selected lists", async () => {
     const redis = {
       get: vi.fn(async (key: string) =>
-        key === "yt:seed:v1" ? [twitchChannel("1"), twitchChannel("9")] : null
+        key === searchCacheKey("foo", "twitch") ? [twitchChannel("1"), twitchChannel("9")] : null
       ),
       set: vi.fn().mockResolvedValue("OK"),
     }
     mockGetRedis.mockReturnValue(redis)
 
     await Promise.all([
-      service.getSeedResults(),
-      service.getSearchResults(""),
+      service.getSearchResults("foo", "twitch"),
       service.getSelectedChannels(["tw:1", "tw:2"]),
     ])
 

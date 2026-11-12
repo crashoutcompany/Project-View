@@ -78,7 +78,6 @@ function renderApp(channelIds = ["a", "b", "c"]) {
     <MultiwatchApp
       initialQuery=""
       initialResults={[]}
-      initialSeedResults={[]}
       initialSelectedChannels={channelIds.map(makeChannel)}
       initialUpdatedAt="2026-11-01T00:00:00.000Z"
       configured
