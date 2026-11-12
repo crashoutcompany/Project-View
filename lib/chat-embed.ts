@@ -1,4 +1,4 @@
-import { TWITCH_PROD_PARENT, twitchChatUrl, twitchParentHosts, toHostname } from "@/lib/twitch-embed"
+import { twitchChatUrl, twitchParentHosts, toHostname } from "@/lib/twitch-embed"
 import { ChannelResult } from "@/lib/types"
 
 // Official chat embeds only: no API calls, no OAuth. Typing works when the
@@ -27,7 +27,7 @@ export function chatEmbedUrl(channel: ChannelResult, { twitchParents, hostname, 
 
   if (channel.platform === "twitch") {
     return channel.login
-      ? twitchChatUrl(channel.login, twitchParentHosts([TWITCH_PROD_PARENT, hostname, ...twitchParents]), dark)
+      ? twitchChatUrl(channel.login, twitchParentHosts([hostname, ...twitchParents]), dark)
       : null
   }
 

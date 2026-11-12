@@ -1,6 +1,7 @@
 // The Twitch player only plays when `parent` lists the host of the page that
 // embeds it, so every host we serve from (localhost, Vercel previews, prod and
-// custom domains) has to be passed in.
+// custom domains) has to be passed in. The server derives them from the request
+// host and the Vercel URL env vars (including the production URL).
 const HOSTNAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/
 
 /** "https://Foo.vercel.app:443/x" -> "foo.vercel.app"; null when not a hostname. */
@@ -36,9 +37,6 @@ export function twitchPlayerUrl(login: string, parents: string[], muted: boolean
 
   return `https://player.twitch.tv/?${params}`
 }
-
-// Production host, always allowed so chat links shared from prod keep working.
-export const TWITCH_PROD_PARENT = "project-view-rho.vercel.app"
 
 export function twitchChatUrl(login: string, parents: string[], dark: boolean) {
   const params = new URLSearchParams()

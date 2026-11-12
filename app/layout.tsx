@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Project View",
-  description: "A multi-stream dashboard for YouTube live channels.",
+  description: "A multi-stream dashboard for YouTube and Twitch live channels.",
 }
 
 const lora = Lora({ subsets: ["latin"], variable: "--font-serif" })
