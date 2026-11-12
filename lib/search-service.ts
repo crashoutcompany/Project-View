@@ -88,7 +88,8 @@ export function resetTwitchStateForTests() {
 }
 
 // Every Twitch lookup on a page load or refresh shares one /users and one
-// /streams call (Helix takes up to 100 ids each).
+// /streams call (Helix takes up to 100 ids each); YouTube channel lookups
+// share one channels.list call per 50 ids.
 const twitchUsers = createBatcher(async (userIds) => {
   const response = await callTwitch(() => getUsersByIds(userIds))
   return response.ok ? response.value : null
@@ -98,6 +99,16 @@ const twitchStreams = createBatcher(async (userIds) => {
   const response = await callTwitch(() => getStreamsByUserIds(userIds))
   return response.ok ? response.value : null
 }, HELIX_MAX_IDS)
+
+// channels.list takes up to 50 ids per call.
+const YOUTUBE_MAX_IDS = 50
+
+const youtubeChannels = createBatcher(async (channelIds) => {
+  const response = await callYouTube(() => getChannelsByIds(channelIds))
+  return response.ok
+    ? new Map(response.value.map((channel) => [channel.channelId, channel]))
+    : null
+}, YOUTUBE_MAX_IDS)
 
 function platformConfigured(platform: Platform) {
   return platform === "twitch" ? twitchConfigured() : youtubeConfigured()
@@ -156,7 +167,7 @@ async function getChannelById(channelId: string, cachedOnly = false) {
   const response =
     platform === "twitch"
       ? await twitchUsers.load(twitchUserId(channelId))
-      : await callYouTube(async () => (await getChannelsByIds([channelId]))[0])
+      : await youtubeChannels.load(channelId)
   if (!response.ok) {
     return placeholderChannel(channelId)
   }

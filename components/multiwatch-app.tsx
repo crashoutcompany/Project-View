@@ -111,6 +111,7 @@ export function MultiwatchApp({
 }: MultiwatchAppProps) {
   const [query, setQuery] = React.useState(initialQuery);
   const [notice, setNotice] = React.useState(initialNotice);
+  const [searchError, setSearchError] = React.useState<string | null>(null);
   const [platformFilter, setPlatformFilter] =
     React.useState<PlatformFilterValue>("all");
   const [results, setResults] = React.useState(
@@ -139,6 +140,8 @@ export function MultiwatchApp({
   // mismatch, then ticks once a minute.
   const [now, setNow] = React.useState(() => Date.parse(initialUpdatedAt));
   const searchTimeoutRef = React.useRef<number | null>(null);
+  // Numbers each search so a slow, older response can't replace a newer one.
+  const searchSequenceRef = React.useRef(0);
   // State rather than a ref: the help dialog renders inside it in fullscreen.
   const [streamsElement, setStreamsElement] =
     React.useState<HTMLElement | null>(null);
@@ -187,6 +190,8 @@ export function MultiwatchApp({
     }
 
     const trimmedQuery = nextQuery.trim();
+    const sequence = ++searchSequenceRef.current;
+    setSearchError(null);
 
     if (!configured || !trimmedQuery) {
       setResults([]);
@@ -201,11 +206,18 @@ export function MultiwatchApp({
             nextPlatform,
           );
 
+          if (sequence !== searchSequenceRef.current) {
+            return;
+          }
+
           setNotice(payload.notice);
           setResults(payload.channels);
           setLastUpdated(new Date().toISOString());
         } catch (error) {
           console.error(error);
+          if (sequence === searchSequenceRef.current) {
+            setSearchError("Search failed. Try again.");
+          }
         }
       });
     }, 300);
@@ -624,6 +636,12 @@ export function MultiwatchApp({
               {notice ? (
                 <p role="status" className="text-xs text-muted-foreground">
                   {notice}
+                </p>
+              ) : null}
+
+              {searchError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {searchError}
                 </p>
               ) : null}
 

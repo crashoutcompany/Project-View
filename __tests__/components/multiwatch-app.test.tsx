@@ -396,8 +396,42 @@ describe("MultiwatchApp", () => {
     await waitFor(() => {
       expect(errorSpy).toHaveBeenCalled()
     })
+    expect(await screen.findByRole("alert")).toHaveTextContent("Search failed")
 
     errorSpy.mockRestore()
+  })
+
+  it("drops a slow search response that a newer search has superseded", async () => {
+    vi.useFakeTimers()
+    const payload = (title: string) => ({
+      query: title,
+      channels: [makeChannel({ channelId: `UC${title}`.padEnd(24, "x"), title })],
+      cached: false,
+      source: "search" as const,
+    })
+    let resolveSlow: (value: ReturnType<typeof payload>) => void = () => {}
+    mockSearchChannelsAction
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveSlow = resolve)))
+      .mockResolvedValueOnce(payload("Fresh"))
+
+    renderApp({ initialQuery: "", initialResults: [] })
+    fireEvent.change(screen.getByLabelText("Query"), { target: { value: "slow" } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    fireEvent.change(screen.getByLabelText("Query"), { target: { value: "fresh" } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    vi.useRealTimers()
+
+    await waitFor(() => expect(screen.getByText("Fresh")).toBeInTheDocument())
+    await act(async () => {
+      resolveSlow(payload("Stale"))
+    })
+
+    expect(screen.queryByText("Stale")).not.toBeInTheDocument()
+    expect(screen.getByText("Fresh")).toBeInTheDocument()
   })
 
   it("hides the chat button until a channel is selected, and closes chat when the last one goes", () => {

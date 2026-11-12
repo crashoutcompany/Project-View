@@ -11,3 +11,7 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 
 .DS_Store
+
+# Playwright
+playwright-report
+test-results

@@ -85,7 +85,7 @@ describe("LiveChatPanel", () => {
     const frames = document.querySelectorAll("iframe")
     expect(frames).toHaveLength(1)
     expect(frames[0].src).toContain("https://www.twitch.tv/embed/twitchtwo/chat?")
-    expect(new URL(frames[0].src).searchParams.getAll("parent")).toContain("project-view-rho.vercel.app")
+    expect(new URL(frames[0].src).searchParams.getAll("parent")).toContain("localhost")
   })
 
   it("shows an empty state for a channel that isn't live", () => {

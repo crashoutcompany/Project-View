@@ -42,14 +42,13 @@ describe("chat embeds", () => {
     )
   })
 
-  it("always allows prod plus the current and server hosts as Twitch parents", () => {
+  it("allows the current and server hosts as Twitch parents", () => {
     const url = chatEmbedUrl(makeChannel({ platform: "twitch", channelId: "tw:1", login: "crash" }), {
       ...options,
       dark: true,
     })
 
     expect(new URL(url!).searchParams.getAll("parent")).toEqual([
-      "project-view-rho.vercel.app",
       "localhost",
       "project-view-git-x.vercel.app",
     ])
