@@ -94,7 +94,7 @@ describe("search service", () => {
     mockGetRedis.mockReset()
   })
 
-  it("makes no YouTube calls beyond one live check per channel on a page load", async () => {
+  it("makes no YouTube calls beyond one batched lookup and one live check per channel on a page load", async () => {
     mockGetRedis.mockReturnValue(null)
     mockGetChannelsByIds.mockImplementation(async (channelIds: string[]) =>
       channelIds.map((channelId) => ({
@@ -123,7 +123,7 @@ describe("search service", () => {
     ])
 
     expect(mockSearchChannels).not.toHaveBeenCalled()
-    expect(mockGetChannelsByIds).toHaveBeenCalledTimes(2)
+    expect(mockGetChannelsByIds).toHaveBeenCalledTimes(1)
     expect(mockGetLiveVideoForChannel).toHaveBeenCalledTimes(2)
     expect(selected[0]?.live).toMatchObject({
       status: "live",
@@ -307,21 +307,17 @@ describe("search service", () => {
 
   it("deduplicates selected channels and filters missing lookups", async () => {
     mockGetRedis.mockReturnValue(null)
-    mockGetChannelsByIds.mockImplementation(async ([channelId]: string[]) => {
-      if (channelId === "UCmissingxxxxxxxxxxxxxxx") {
-        return []
-      }
-
-      return [
-        {
-          platform: "youtube",
+    mockGetChannelsByIds.mockImplementation(async (channelIds: string[]) =>
+      channelIds
+        .filter((channelId) => channelId !== "UCmissingxxxxxxxxxxxxxxx")
+        .map((channelId) => ({
+          platform: "youtube" as const,
           channelId,
           title: `Title ${channelId}`,
           description: "",
           thumbnailUrl: `${channelId}.jpg`,
-        },
-      ]
-    })
+        }))
+    )
     mockGetLiveVideoForChannel.mockImplementation(async (channelId: string) => ({
       status: "offline",
       checkedAt: `${channelId}-checked`,
@@ -354,7 +350,13 @@ describe("search service", () => {
       },
     ])
 
-    expect(mockGetChannelsByIds).toHaveBeenCalledTimes(3)
+    // One batched channels.list call for the three distinct ids.
+    expect(mockGetChannelsByIds).toHaveBeenCalledTimes(1)
+    expect(mockGetChannelsByIds).toHaveBeenCalledWith([
+      "UCchan-1xxxxxxxxxxxxxxxx",
+      "UCmissingxxxxxxxxxxxxxxx",
+      "UCchan-2xxxxxxxxxxxxxxxx",
+    ])
   })
 
   it("refreshes a single channel and caches the new live state", async () => {
