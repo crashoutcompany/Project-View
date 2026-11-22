@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.2.0",
-    "@upstash/redis": "^1.39.0",
+    "@upstash/redis": "^1.41.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "botid": "^1.5.13",
     "class-variance-authority": "^0.7.1",
