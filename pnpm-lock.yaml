@@ -14,8 +14,8 @@ importers:
   .:
     dependencies:
       '@upstash/ratelimit':
-        specifier: ^2.2.0
-        version: 2.2.0(@upstash/redis@1.41.0)
+        specifier: ^2.2.1
+        version: 2.2.1(@upstash/redis@1.41.0)
       '@upstash/redis':
         specifier: ^1.41.0
         version: 1.41.0
@@ -2453,8 +2453,8 @@ packages:
     resolution: {integrity: sha512-7qJHGxpQgQr9/vmeS1PktEwvNAF7TI4iJDi8Pu2CFZ9YUGHZH4fOP5TfYlZ4aVxfopnELiE4BS4FBjyK7V1/xQ==}
     engines: {node: '>=16.0.0'}
 
-  '@upstash/ratelimit@2.2.0':
-    resolution: {integrity: sha512-gSydXspG6TJKTh71/gGGv4IGDjD9rXglQfm2jAue2kh4bcfWtEAsG1NW4OqzZd/hubJPojsbOU6AMdS6Xqh0tQ==}
+  '@upstash/ratelimit@2.2.1':
+    resolution: {integrity: sha512-SE2BU4h4+Ua/5SLKkrXZ8j1hYZt8xge3dGD3mnMeDls1CiOpau8Q8gipdVtbbzjIxBxRutJqCBoeXqSa1HH3lg==}
     peerDependencies:
       '@upstash/redis': ^1.38.2
 
@@ -4711,8 +4711,8 @@ packages:
   unrs-resolver@1.11.1:
     resolution: {integrity: sha512-bSjt9pjaEBnNiGgc9rUiHGKv5l4/TGzDmYw3RhnkJGtLhbnnA/5qJj7x3dNDCRx/PJxu774LlH8lCOlB4hEfKg==}
 
-  until-async@3.0.2:
-    resolution: {integrity: sha512-IiSk4HlzAMqTUseHHe3VhIGyuFmN90zMTpD3Z3y8jeQbzLIq500MVM7Jq2vUAnTKAFPJrqwkzr6PoTcPhGcOiw==}
+  until-async@3.0.3:
+    resolution: {integrity: sha512-Ix78tBf1shsd8V8zc+msjiUk8Yf6upBuqR9iTgcWTyNFkTPy7hMonnsG/W6jhu53vrNTB0VZHxSNayRHrF+Auw==}
 
   update-browserslist-db@1.3.4:
     resolution: {integrity: sha512-t8wonIOdQyOjtPd2VktlBu6QjTVTks6v8bSi7kd0r2Vll8TK1JYDZtRRdbmCHOAMphkZgrzK+L+vXK4pyZ8t4A==}
@@ -7161,7 +7161,7 @@ snapshots:
     dependencies:
       '@upstash/redis': 1.41.0
 
-  '@upstash/ratelimit@2.2.0(@upstash/redis@1.41.0)':
+  '@upstash/ratelimit@2.2.1(@upstash/redis@1.41.0)':
     dependencies:
       '@upstash/core-analytics': 0.0.10
       '@upstash/redis': 1.41.0
@@ -8704,7 +8704,7 @@ snapshots:
       strict-event-emitter: 0.5.1
       tough-cookie: 6.1.0
       type-fest: 5.10.0
-      until-async: 3.0.2
+      until-async: 3.0.3
       yargs: 17.7.3
     optionalDependencies:
       typescript: 5.9.3
@@ -9758,7 +9758,7 @@ snapshots:
       '@unrs/resolver-binding-win32-ia32-msvc': 1.11.1
       '@unrs/resolver-binding-win32-x64-msvc': 1.11.1
 
-  until-async@3.0.2:
+  until-async@3.0.3:
     optional: true
 
   update-browserslist-db@1.3.4(browserslist@4.29.5):
